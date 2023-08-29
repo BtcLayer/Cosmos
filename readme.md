@@ -18,11 +18,7 @@ To get started with BTCLayer, follow these steps:
 
 Installation: Clone this repository to your local machine or install it via a package manager.
 
-bash
-Copy code
-git clone https://github.com/yourusername/btclayer.git
-cd btclayer
-Dependencies: Install the required dependencies by running:
+
 
 bash
 Copy code
