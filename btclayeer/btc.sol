@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Importing required libraries and interfaces
-// import "path/to/ILightningNetwork.sol";
-// import "path/to/IZkEVM.sol";
 
 contract BTCLayer {
     // State variables
