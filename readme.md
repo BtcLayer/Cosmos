@@ -14,6 +14,7 @@ Data Security: BTCLayer prioritizes security. Private keys are kept secure, and 
 Extensive Documentation: Our project comes with comprehensive documentation to help you get started quickly. Find tutorials, API references, and usage examples in our documentation.
 
 Getting Started
+
 To get started with BTCLayer, follow these steps:
 
 Installation: Clone this repository to your local machine or install it via a package manager.
