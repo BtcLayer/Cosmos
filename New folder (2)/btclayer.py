@@ -9,6 +9,7 @@ pubkeys = [
     'PUBLIC_KEY_3'
 ]
 
+
 # Create a 2-of-3 multi-signature redeem script
 redeem_script = mk_multisig_script(pubkeys, 2)
 
