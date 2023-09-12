@@ -15,7 +15,7 @@ contract BTCLayer {
     // Modifiers
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can perform this action");
-        _;
+        ;
     }
 
     constructor() {
