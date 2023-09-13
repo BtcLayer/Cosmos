@@ -22,8 +22,7 @@ Installation: Clone this repository to your local machine or install it via a pa
 
 
 
-bash
-Copy code
+
 npm install
 Configuration: Rename the config.example.json file to config.json and fill in your configuration details, such as API keys, network settings, etc.
 
