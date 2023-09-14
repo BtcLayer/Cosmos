@@ -14,6 +14,7 @@ pubkeys = [
 redeem_script = mk_multisig_script(pubkeys, 2)
 
 # Hash the redeem script to get the P2SH address
+
 p2sh_hash = hashlib.sha256(hashlib.new('ripemd160', hashlib.sha256(redeem_script).digest()).digest()).digest()
 p2sh_address = b58check_encode(p2sh_hash, version=5)  # version 5 is for P2SH addresses
 
