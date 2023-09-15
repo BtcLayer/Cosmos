@@ -17,7 +17,6 @@ Getting Started
 
 To get started with BTCLayer, follow these steps:
 
-
 Installation: Clone this repository to your local machine or install it via a package manager.
 
 
