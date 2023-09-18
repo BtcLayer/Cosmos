@@ -51,12 +51,12 @@ contract BTCLayer {
     }
 
 
-    // Admin function to update contracts (Example)
+    // Admin function to update contracts in the contract
     function updateLightningNetwork(address newAddress) external onlyOwner {
         // lightningNetwork = ILightningNetwork(newAddress);
     }
 
     function updateZkEVM(address newAddress) external onlyOwner {
-        // zkEVM = IZkEVM(newAddress);
+         zkEVM = IZkEVM(newAddress);
     }
 }
