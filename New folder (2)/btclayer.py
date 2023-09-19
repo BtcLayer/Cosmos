@@ -38,4 +38,6 @@ p2sh_address = b58check_encode(p2sh_hash, version=5)  # version 5 is for P2SH ad
 
 print(f"Redeem Script: {redeem_script}")
 print(f"P2SH Address: {p2sh_address}")
+from bitcoin import *
+print(f"Redeem Script: {redeem_script}")
 
