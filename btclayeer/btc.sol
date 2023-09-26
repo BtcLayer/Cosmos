@@ -42,6 +42,10 @@ contract BTCLayer {
         emit Withdrawn(msg.sender, amount);
     }
 
+function updateZkEVM(address newAddress) external onlyOwner {
+         zkEVM = IZkEVM(newAddress);
+    }
+    
     // Withdraw function to unlock BTC from zkEVM
     function withdrawBTC(uint256 amount) external {
         // Logic to interact with zkEVM
@@ -56,8 +60,8 @@ contract BTCLayer {
         // lightningNetwork = ILightningNetwork(newAddress);
     }
 
+
     function updateZkEVM(address newAddress) external onlyOwner {
          zkEVM = IZkEVM(newAddress);
     }
 }
-:
