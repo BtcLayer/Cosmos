@@ -42,6 +42,17 @@ contract BTCLayer {
         emit Withdrawn(msg.sender, amount);
     }
 
+
+
+     // Function to move BTC to zkEVM
+    function moveToZkEVM(uint256 amount) external {
+        // Logic to move BTC from Lightning Network to zkEVM
+        // lightningNetwork.withdraw(amount);
+        // zkEVM.deposit(amount);
+
+        emit Withdrawn(msg.sender, amount);
+    }
+
 function updateZkEVM(address newAddress) external onlyOwner {
          zkEVM = IZkEVM(newAddress);
     }
