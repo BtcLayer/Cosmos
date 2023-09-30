@@ -50,6 +50,7 @@ contract BTCLayer {
         emit Withdrawn(msg.sender, amount);
     }
 
+
     // Admin function to update contracts (Example)
     function updateLightningNetwork(address newAddress) external onlyOwner {
         // lightningNetwork = ILightningNetwork(newAddress);
