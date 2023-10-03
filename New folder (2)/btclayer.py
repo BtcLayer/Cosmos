@@ -4,6 +4,7 @@ from bitcoin import *
 
 # Define the public keys of the 3 parties
 pubkeys = [
+    
     'PUBLIC_KEY_1',
     'PUBLIC_KEY_2',
     'PUBLIC_KEY_3'
