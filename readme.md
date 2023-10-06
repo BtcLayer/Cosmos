@@ -12,6 +12,7 @@ Transaction Handling: Create, sign, and broadcast Bitcoin transactions using BTC
 
 Data Security: BTCLayer prioritizes security. Private keys are kept secure, and transactions are handled with industry-standard encryption and cryptographic libraries.
 
+
 Extensive Documentation: Our project comes with comprehensive documentation to help you get started quickly. Find tutorials, API references, and usage examples in our documentation.
 
 Getting Started
