@@ -1,34 +1,69 @@
+<div align="center">
+  <h1> Cosmos SDK </h1>
+</div>
 
-btclayer
+![banner](https://github.com/cosmos/cosmos-sdk-docs/blob/main/static/img/banner.jpg)
 
-Welcome to the BTCLayer project! BTCLayer is a cutting-edge software package designed to provide a comprehensive and user-friendly interface for interacting with the Bitcoin blockchain. Whether you're a developer building Bitcoin-powered applications or an enthusiast exploring the blockchain, BTCLayer has you covered.
+<div align="center">
+  <a href="https://github.com/cosmos/cosmos-sdk/blob/main/LICENSE">
+    <img alt="License: Apache-2.0" src="https://img.shields.io/github/license/cosmos/cosmos-sdk.svg" />
+  </a>
+  <a href="https://pkg.go.dev/github.com/cosmos/cosmos-sdk">
+    <img src="https://pkg.go.dev/badge/github.com/cosmos/cosmos-sdk.svg" alt="Go Reference">
+  </a>
+  <a href="https://goreportcard.com/report/github.com/cosmos/cosmos-sdk">
+    <img alt="Go report card" src="https://goreportcard.com/badge/github.com/cosmos/cosmos-sdk" />
+  </a>
+  <a href="https://sonarcloud.io/summary/overall?id=cosmos_cosmos-sdk">
+    <img alt="Code Coverage" src="https://sonarcloud.io/api/project_badges/measure?project=cosmos_cosmos-sdk&metric=coverage" />
+  </a>
+  <a href="https://sonarcloud.io/summary/overall?id=cosmos_cosmos-sdk">
+    <img alt="SonarCloud Analysis" src="https://sonarcloud.io/api/project_badges/measure?project=cosmos_cosmos-sdk&metric=alert_status">
+  </a>
+</div>
+<div align="center">
+  <a href="https://discord.gg/cosmosnetwork">
+    <img alt="Discord" src="https://img.shields.io/discord/669268347736686612.svg" />
+  </a>
+  <a href="https://sourcegraph.com/github.com/cosmos/cosmos-sdk?badge">
+    <img alt="Imported by" src="https://sourcegraph.com/github.com/cosmos/cosmos-sdk/-/badge.svg" />
+  </a>
+    <img alt="Sims" src="https://github.com/cosmos/cosmos-sdk/workflows/Sims/badge.svg" />
+    <img alt="Lint Satus" src="https://github.com/cosmos/cosmos-sdk/workflows/Lint/badge.svg" />
+</div>
 
-Features
-Blockchain Interaction: BTCLayer offers a robust and intuitive way to interact with the Bitcoin blockchain. Retrieve transaction data, block information, wallet balances, and more with ease.
+The Cosmos SDK is a framework for building blockchain applications. [CometBFT (BFT Consensus)](https://github.com/cometbft/cometbft) and the Cosmos SDK are written in the Go programming language. Cosmos SDK is used to build [Gaia](https://github.com/cosmos/gaia), the implementation of the Cosmos Hub.
 
-Address Management: Manage Bitcoin addresses effortlessly. Generate new addresses, check balances, and monitor transactions associated with each address.
+**WARNING**: The Cosmos SDK has mostly stabilized, but we are still making some breaking changes.
 
-Transaction Handling: Create, sign, and broadcast Bitcoin transactions using BTCLayer's simple APIs. Seamlessly integrate transaction functionality into your applications.
+**Note**: We advise to always use the latest maintained [Go](https://go.dev/dl) version for building Cosmos SDK applications.
 
-Data Security: BTCLayer prioritizes security. Private keys are kept secure, and transactions are handled with industry-standard encryption and cryptographic libraries.
+## Quick Start
 
+To learn how the Cosmos SDK works from a high-level perspective, see the Cosmos SDK [High-Level Intro](https://docs.cosmos.network/main/learn/intro/overview).
 
-Extensive Documentation: Our project comes with comprehensive documentation to help you get started quickly. Find tutorials, API references, and usage examples in our documentation.
+If you want to get started quickly and learn how to build on top of Cosmos SDK, visit [Cosmos SDK Tutorials](https://tutorials.cosmos.network). You can also fork the tutorial's repository to get started building your own Cosmos SDK application.
 
-Getting Started
+For more information, see the [Cosmos SDK Documentation](https://docs.cosmos.network).
 
+## Contributing
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute and participate in our [dev calls](./CONTRIBUTING.md#teams-dev-calls).
+If you want to follow the updates or learn more about the latest design then join our [Discord](https://discord.gg/cosmosnetwork).
 
-To get started with BTCLayer, follow these steps:
+## Tools and Frameworks
 
-Installation: Clone this repository to your local machine or install it via a package manager.
+The Cosmos ecosystem is vast.
+[Awesome Cosmos](https://github.com/cosmos/awesome-cosmos) is a community-curated list of notable frameworks, modules and tools.
 
+### Cosmos Hub Mainnet
 
+The Cosmos Hub application, `gaia`, has its own [cosmos/gaia repository](https://github.com/cosmos/gaia). Go there to join the Cosmos Hub mainnet and more.
 
+### Inter-Blockchain Communication (IBC)
 
-npm install
-Configuration: Rename the config.example.json file to config.json and fill in your configuration details, such as API keys, network settings, etc.
+The IBC module for the Cosmos SDK has its own [cosmos/ibc-go repository](https://github.com/cosmos/ibc-go). Go there to build and integrate with the IBC module.
 
-Usage: Refer to our documentation for usage instructions and examples. You can find detailed guides on how to retrieve blockchain data, manage addresses, handle transactions, and more.
+## Disambiguation
 
-Integration: Integrate BTCLayer into your project by importing it and utilizing its APIs. Sample code snippets can be found in the documentation
+This Cosmos SDK project is not related to the [React-Cosmos](https://github.com/react-cosmos/react-cosmos) project (yet). Many thanks to Evan Coury and Ovidiu (@skidding) for this Github organization name. As per our agreement, this disambiguation notice will stay here.
