@@ -4,40 +4,37 @@ import (
 	"context"
 	"fmt"
 
+	"cosmossdk.io/x/accounts/internal/implementation"
 	v1 "cosmossdk.io/x/accounts/v1"
 )
 
-var _ v1.QueryServer = queryServer{}
+var _ v1.QueryServer = &queryServer{}
 
+// NewQueryServer initializes a new instance of QueryServer.
+// It precalculates and stores schemas for efficient schema retrieval.
 func NewQueryServer(k Keeper) v1.QueryServer {
-	return &queryServer{k}
+	// Pre-calculate schemas for efficient retrieval.
+	schemas := v1.MakeAccountsSchemas(k.accounts)
+	return &queryServer{
+		k:       k,
+		schemas: schemas, // Store precalculated schemas.
+	}
 }
 
 type queryServer struct {
-	k Keeper
+	k       Keeper
+	schemas map[string]*v1.SchemaResponse // Stores precalculated schemas.
 }
 
-func (q queryServer) AccountQuery(ctx context.Context, request *v1.AccountQueryRequest) (*v1.AccountQueryResponse, error) {
+func (q *queryServer) AccountQuery(ctx context.Context, request *v1.AccountQueryRequest) (*v1.AccountQueryResponse, error) {
 	// get target addr
 	targetAddr, err := q.k.addressCodec.StringToBytes(request.Target)
 	if err != nil {
 		return nil, err
 	}
 
-	// get acc type
-	accType, err := q.k.AccountsByType.Get(ctx, targetAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	// get impl
-	impl, err := q.k.getImplementation(accType)
-	if err != nil {
-		return nil, err
-	}
-
 	// decode req into boxed concrete type
-	queryReq, err := impl.DecodeQueryRequest(request.Request)
+	queryReq, err := implementation.UnpackAnyRaw(request.Request)
 	if err != nil {
 		return nil, err
 	}
@@ -48,28 +45,29 @@ func (q queryServer) AccountQuery(ctx context.Context, request *v1.AccountQueryR
 	}
 
 	// encode response
-	respBytes, err := impl.EncodeQueryResponse(resp)
+	respAny, err := implementation.PackAny(resp)
 	if err != nil {
 		return nil, err
 	}
 
 	return &v1.AccountQueryResponse{
-		Response: respBytes,
+		Response: respAny,
 	}, nil
 }
 
-func (q queryServer) Schema(_ context.Context, request *v1.SchemaRequest) (*v1.SchemaResponse, error) {
-	// TODO: maybe we should cache this, considering accounts types are not
-	// added on the fly as the chain is running.
-	schemas := v1.MakeAccountsSchemas(q.k.accounts)
-	schema, ok := schemas[request.AccountType]
+// Schema retrieves the schema for a given account type.
+// It checks the precalculated schemas and returns an error if the schema is not found.
+func (q *queryServer) Schema(_ context.Context, request *v1.SchemaRequest) (*v1.SchemaResponse, error) {
+	// Fetch schema from precalculated schemas.
+	schema, ok := q.schemas[request.AccountType]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", errAccountTypeNotFound, request.AccountType)
 	}
+
 	return schema, nil
 }
 
-func (q queryServer) AccountType(ctx context.Context, request *v1.AccountTypeRequest) (*v1.AccountTypeResponse, error) {
+func (q *queryServer) AccountType(ctx context.Context, request *v1.AccountTypeRequest) (*v1.AccountTypeResponse, error) {
 	addr, err := q.k.addressCodec.StringToBytes(request.Address)
 	if err != nil {
 		return nil, err
@@ -82,3 +80,22 @@ func (q queryServer) AccountType(ctx context.Context, request *v1.AccountTypeReq
 		AccountType: accType,
 	}, nil
 }
+
+func (q *queryServer) AccountNumber(ctx context.Context, request *v1.AccountNumberRequest) (*v1.AccountNumberResponse, error) {
+	addr, err := q.k.addressCodec.StringToBytes(request.Address)
+	if err != nil {
+		return nil, err
+	}
+	number, err := q.k.AccountByNumber.Get(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.AccountNumberResponse{Number: number}, nil
+}
+
+const (
+	// TODO(tip): evaluate if the following numbers should be parametrised over state, or over the node.
+	SimulateAuthenticateGasLimit   = 1_000_000
+	SimulateBundlerPaymentGasLimit = SimulateAuthenticateGasLimit
+	ExecuteGasLimit                = SimulateAuthenticateGasLimit
+)

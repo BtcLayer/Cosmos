@@ -36,7 +36,6 @@ func (s *KeeperTestSuite) TestGRPCSigningInfo() {
 	signingInfo := slashingtypes.NewValidatorSigningInfo(
 		consStr,
 		0,
-		int64(0),
 		time.Unix(2, 0),
 		false,
 		int64(0),
@@ -46,10 +45,8 @@ func (s *KeeperTestSuite) TestGRPCSigningInfo() {
 	info, err := keeper.ValidatorSigningInfo.Get(ctx, consAddr)
 	require.NoError(err)
 
-	consAddrStr, err := s.stakingKeeper.ConsensusAddressCodec().BytesToString(consAddr)
-	require.NoError(err)
 	infoResp, err = queryClient.SigningInfo(gocontext.Background(),
-		&slashingtypes.QuerySigningInfoRequest{ConsAddress: consAddrStr})
+		&slashingtypes.QuerySigningInfoRequest{ConsAddress: consStr})
 	require.NoError(err)
 	require.Equal(info, infoResp.ValSigningInfo)
 }
@@ -59,14 +56,13 @@ func (s *KeeperTestSuite) TestGRPCSigningInfos() {
 	require := s.Require()
 
 	// set two validator signing information
-	consAddr1 := sdk.ConsAddress(sdk.AccAddress([]byte("addr1_______________")))
+	consAddr1 := sdk.ConsAddress("addr1_______________")
 	consStr1, err := s.stakingKeeper.ConsensusAddressCodec().BytesToString(consAddr1)
 	require.NoError(err)
-	consAddr2 := sdk.ConsAddress(sdk.AccAddress([]byte("addr2_______________")))
+	consAddr2 := sdk.ConsAddress("addr2_______________")
 	signingInfo := slashingtypes.NewValidatorSigningInfo(
 		consStr1,
 		0,
-		int64(0),
 		time.Unix(2, 0),
 		false,
 		int64(0),

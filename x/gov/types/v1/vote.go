@@ -6,12 +6,16 @@ import (
 	"strings"
 
 	"cosmossdk.io/math"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 const (
-	OptionEmpty      = VoteOption_VOTE_OPTION_UNSPECIFIED
+	OptionEmpty = VoteOption_VOTE_OPTION_UNSPECIFIED
+	OptionOne   = VoteOption_VOTE_OPTION_ONE
+	OptionTwo   = VoteOption_VOTE_OPTION_TWO
+	OptionThree = VoteOption_VOTE_OPTION_THREE
+	OptionFour  = VoteOption_VOTE_OPTION_FOUR
+	OptionSpam  = VoteOption_VOTE_OPTION_SPAM
+
 	OptionYes        = VoteOption_VOTE_OPTION_YES
 	OptionNo         = VoteOption_VOTE_OPTION_NO
 	OptionNoWithVeto = VoteOption_VOTE_OPTION_NO_WITH_VETO
@@ -19,8 +23,8 @@ const (
 )
 
 // NewVote creates a new Vote instance
-func NewVote(proposalID uint64, voter sdk.AccAddress, options WeightedVoteOptions, metadata string) Vote {
-	return Vote{ProposalId: proposalID, Voter: voter.String(), Options: options, Metadata: metadata}
+func NewVote(proposalID uint64, voter string, options WeightedVoteOptions, metadata string) Vote {
+	return Vote{ProposalId: proposalID, Voter: voter, Options: options, Metadata: metadata}
 }
 
 // Empty returns whether a vote is empty.
@@ -103,7 +107,7 @@ func (v WeightedVoteOptions) String() string {
 func VoteOptionFromString(str string) (VoteOption, error) {
 	option, ok := VoteOption_value[str]
 	if !ok {
-		return OptionEmpty, fmt.Errorf("'%s' is not a valid vote option, available options: yes/no/no_with_veto/abstain", str)
+		return OptionEmpty, fmt.Errorf("'%s' is not a valid vote option, available options: yes,option_one/no,option_three/no_with_veto,option_four/abstain,option_two/spam", str)
 	}
 	return VoteOption(option), nil
 }
@@ -132,10 +136,11 @@ func WeightedVoteOptionsFromString(str string) (WeightedVoteOptions, error) {
 
 // ValidVoteOption returns true if the vote option is valid and false otherwise.
 func ValidVoteOption(option VoteOption) bool {
-	if option == OptionYes ||
-		option == OptionAbstain ||
-		option == OptionNo ||
-		option == OptionNoWithVeto {
+	if option == OptionOne ||
+		option == OptionTwo ||
+		option == OptionThree ||
+		option == OptionFour ||
+		option == OptionSpam {
 		return true
 	}
 	return false
@@ -145,8 +150,8 @@ func ValidVoteOption(option VoteOption) bool {
 func (vo VoteOption) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 's':
-		s.Write([]byte(vo.String()))
+		_, _ = s.Write([]byte(vo.String()))
 	default:
-		s.Write([]byte(fmt.Sprintf("%v", byte(vo))))
+		_, _ = s.Write([]byte(fmt.Sprintf("%v", byte(vo))))
 	}
 }

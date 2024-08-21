@@ -20,16 +20,23 @@ const (
 	// RouterKey is the message route for distribution
 	RouterKey = ModuleName
 
-	// GovModuleName is the name of the gov module
+	// GovModuleName duplicates the gov module's name to avoid a cyclic dependency with x/gov.
+	// It should be synced with the gov module's name if it is ever changed.
+	// See: https://github.com/cosmos/cosmos-sdk/blob/b62a28aac041829da5ded4aeacfcd7a42873d1c8/x/gov/types/keys.go#L9
 	GovModuleName = "gov"
+	// ProtocolPoolDistrAccount duplicates the protocolpool_distr accounts's name to avoid a cyclic dependency with x/protocolpool.
+	// This account is an intermediary account that holds the funds to be distributed to the protocolpool accounts.
+	ProtocolPoolDistrAccount = "protocolpool_distr"
+
+	// ProtocolPoolModuleName duplicates the protocolpool accounts's name to avoid a cyclic dependency with x/protocolpool.
+	// DO NOT USE: This is only used in deprecated methods CommunityPoolSpend, FundCommunityPool and query CommunityPool.
+	ProtocolPoolModuleName = "protocolpool"
 )
 
 // Keys for distribution store
 // Items are stored with the following key: values
 //
 // - 0x00<proposalID_Bytes>: FeePol
-//
-// - 0x01: sdk.ConsAddress
 //
 // - 0x02<valAddrLen (1 Byte)><valAddr_Bytes>: ValidatorOutstandingRewards
 //
@@ -48,7 +55,6 @@ const (
 // - 0x09: Params
 var (
 	FeePoolKey                           = collections.NewPrefix(0) // key for global distribution state
-	ProposerKey                          = collections.NewPrefix(1) // key for the proposer operator address
 	ValidatorOutstandingRewardsPrefix    = collections.NewPrefix(2) // key for outstanding rewards
 	DelegatorWithdrawAddrPrefix          = collections.NewPrefix(3) // key for delegator withdraw address
 	DelegatorStartingInfoPrefix          = collections.NewPrefix(4) // key for delegator starting info
@@ -57,6 +63,11 @@ var (
 	ValidatorAccumulatedCommissionPrefix = collections.NewPrefix(7) // key for accumulated validator commission
 	ValidatorSlashEventPrefix            = collections.NewPrefix(8) // key for validator slash fraction
 	ParamsKey                            = collections.NewPrefix(9) // key for distribution module params
+)
+
+// Reserved prefixes
+var (
+	DeprecatedProposerKey = collections.NewPrefix(1) // key for the proposer operator address
 )
 
 // GetValidatorSlashEventAddressHeight creates the height from a validator's slash event key.

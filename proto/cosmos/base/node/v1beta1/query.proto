@@ -24,16 +24,16 @@ message ConfigRequest {}
 
 // ConfigResponse defines the response structure for the Config gRPC query.
 message ConfigResponse {
-  string minimum_gas_price = 1;
-  // pruning settings
+  string minimum_gas_price   = 1;
   string pruning_keep_recent = 2;
   string pruning_interval    = 3;
+  uint64 halt_height         = 4;
 }
 
-// StateRequest defines the request structure for the status of a node.
+// StatusRequest defines the request structure for the status of a node.
 message StatusRequest {}
 
-// StateResponse defines the response structure for the status of a node.
+// StatusResponse defines the response structure for the status of a node.
 message StatusResponse {
   uint64                    earliest_store_height = 1; // earliest block height available in the store
   uint64                    height                = 2; // current block height

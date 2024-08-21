@@ -13,83 +13,42 @@ import (
 	"testing"
 	"unsafe"
 
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	cmttypes "github.com/cometbft/cometbft/types"
+	cmtproto "github.com/cometbft/cometbft/api/cometbft/types/v1"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
 	runtimev1alpha1 "cosmossdk.io/api/cosmos/app/runtime/v1alpha1"
 	appv1alpha1 "cosmossdk.io/api/cosmos/app/v1alpha1"
 	"cosmossdk.io/core/address"
-	"cosmossdk.io/core/appconfig"
 	"cosmossdk.io/depinject"
+	"cosmossdk.io/depinject/appconfig"
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	_ "cosmossdk.io/x/auth"
 	"cosmossdk.io/x/auth/signing"
 	_ "cosmossdk.io/x/auth/tx/config"
-	authtypes "cosmossdk.io/x/auth/types"
-	_ "cosmossdk.io/x/bank"
-	banktypes "cosmossdk.io/x/bank/types"
-	_ "cosmossdk.io/x/staking"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	baseapptestutil "github.com/cosmos/cosmos-sdk/baseapp/testutil"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/codec"
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	"github.com/cosmos/cosmos-sdk/runtime"
-	"github.com/cosmos/cosmos-sdk/testutil/mock"
-	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/types/mempool"
 	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
-	_ "github.com/cosmos/cosmos-sdk/x/consensus"
 )
 
 var ParamStoreKey = []byte("paramstore")
-
-// GenesisStateWithSingleValidator initializes GenesisState with a single validator and genesis accounts
-// that also act as delegators.
-func GenesisStateWithSingleValidator(t *testing.T, codec codec.Codec, builder *runtime.AppBuilder) map[string]json.RawMessage {
-	t.Helper()
-
-	privVal := mock.NewPV()
-	pubKey, err := privVal.GetPubKey()
-	require.NoError(t, err)
-
-	// create validator set with single validator
-	validator := cmttypes.NewValidator(pubKey, 1)
-	valSet := cmttypes.NewValidatorSet([]*cmttypes.Validator{validator})
-
-	// generate genesis account
-	senderPrivKey := secp256k1.GenPrivKey()
-	acc := authtypes.NewBaseAccount(senderPrivKey.PubKey().Address().Bytes(), senderPrivKey.PubKey(), 0, 0)
-	balances := []banktypes.Balance{
-		{
-			Address: acc.GetAddress().String(),
-			Coins:   sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, math.NewInt(100000000000000))),
-		},
-	}
-
-	genesisState := builder.DefaultGenesis()
-	// sus
-	genesisState, err = simtestutil.GenesisStateWithValSet(codec, genesisState, valSet, []authtypes.GenesisAccount{acc}, balances...)
-	require.NoError(t, err)
-
-	return genesisState
-}
 
 func makeMinimalConfig() depinject.Config {
 	var (
 		mempoolOpt            = baseapp.SetMempool(mempool.NewSenderNonceMempool())
 		addressCodec          = func() address.Codec { return addresscodec.NewBech32Codec("cosmos") }
-		validatorAddressCodec = func() runtime.ValidatorAddressCodec { return addresscodec.NewBech32Codec("cosmosvaloper") }
-		consensusAddressCodec = func() runtime.ConsensusAddressCodec { return addresscodec.NewBech32Codec("cosmosvalcons") }
+		validatorAddressCodec = func() address.ValidatorAddressCodec { return addresscodec.NewBech32Codec("cosmosvaloper") }
+		consensusAddressCodec = func() address.ConsensusAddressCodec { return addresscodec.NewBech32Codec("cosmosvalcons") }
 	)
 
 	return depinject.Configs(
@@ -393,10 +352,96 @@ func setFailOnHandler(t *testing.T, cfg client.TxConfig, tx signing.Tx, fail boo
 		msgs[i] = &baseapptestutil.MsgCounter{
 			Counter:       msg.(*baseapptestutil.MsgCounter).Counter,
 			FailOnHandler: fail,
+			Signer:        sdk.AccAddress("addr").String(),
 		}
 	}
 
 	err := builder.SetMsgs(msgs...)
 	require.NoError(t, err)
 	return builder.GetTx()
+}
+
+// wonkyMsg is to be used to run a MsgCounter2 message when the MsgCounter2 handler is not registered.
+func wonkyMsg(t *testing.T, cfg client.TxConfig, tx signing.Tx) signing.Tx {
+	t.Helper()
+	builder := cfg.NewTxBuilder()
+	builder.SetMemo(tx.GetMemo())
+
+	msgs := tx.GetMsgs()
+	msgs = append(msgs, &baseapptestutil.MsgCounter2{
+		Signer: sdk.AccAddress("wonky").String(),
+	})
+
+	err := builder.SetMsgs(msgs...)
+	require.NoError(t, err)
+	return builder.GetTx()
+}
+
+type SendServerImpl struct {
+	gas uint64
+}
+
+func (s SendServerImpl) Send(ctx context.Context, send *baseapptestutil.MsgSend) (*baseapptestutil.MsgSendResponse, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if send.From == "" {
+		return nil, errors.New("from address cannot be empty")
+	}
+	if send.To == "" {
+		return nil, errors.New("to address cannot be empty")
+	}
+
+	_, err := sdk.ParseCoinNormalized(send.Amount)
+	if err != nil {
+		return nil, err
+	}
+	gas := s.gas
+	if gas == 0 {
+		gas = 5
+	}
+	sdkCtx.GasMeter().ConsumeGas(gas, "send test")
+	return &baseapptestutil.MsgSendResponse{}, nil
+}
+
+type NestedMessgesServerImpl struct {
+	gas uint64
+}
+
+func (n NestedMessgesServerImpl) Check(ctx context.Context, message *baseapptestutil.MsgNestedMessages) (*baseapptestutil.MsgCreateNestedMessagesResponse, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	cdc := codectestutil.CodecOptions{}.NewCodec()
+	baseapptestutil.RegisterInterfaces(cdc.InterfaceRegistry())
+
+	signer, _, err := cdc.GetMsgSigners(message)
+	if err != nil {
+		return nil, err
+	}
+	if len(signer) != 1 {
+		return nil, fmt.Errorf("expected 1 signer, got %d", len(signer))
+	}
+
+	msgs, err := message.GetMsgs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, msg := range msgs {
+		s, _, err := cdc.GetMsgSigners(msg)
+		if err != nil {
+			return nil, err
+		}
+		if len(s) != 1 {
+			return nil, fmt.Errorf("expected 1 signer, got %d", len(s))
+		}
+		if !bytes.Equal(signer[0], s[0]) {
+			return nil, errors.New("signer does not match")
+		}
+
+	}
+
+	gas := n.gas
+	if gas == 0 {
+		gas = 5
+	}
+	sdkCtx.GasMeter().ConsumeGas(gas, "nested messages test")
+	return nil, nil
 }

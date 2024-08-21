@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"cosmossdk.io/x/gov"
 	"cosmossdk.io/x/gov/keeper"
 	"cosmossdk.io/x/gov/types"
 	v1 "cosmossdk.io/x/gov/types/v1"
@@ -75,7 +74,7 @@ func TestHooks(t *testing.T) {
 	require.False(t, govHooksReceiver.AfterProposalVotingPeriodEndedValid)
 
 	tp := TestProposal
-	_, err := govKeeper.SubmitProposal(ctx, tp, "", "test", "summary", sdk.AccAddress("cosmos1ghekyjucln7y67ntx7cf27m9dpuxxemn4c8g4r"), false)
+	_, err := govKeeper.SubmitProposal(ctx, tp, "", "test", "summary", sdk.AccAddress("cosmos1ghekyjucln7y67ntx7cf27m9dpuxxemn4c8g4r"), v1.ProposalType_PROPOSAL_TYPE_STANDARD)
 	require.NoError(t, err)
 	require.True(t, govHooksReceiver.AfterProposalSubmissionValid)
 
@@ -83,12 +82,12 @@ func TestHooks(t *testing.T) {
 	newHeader := ctx.HeaderInfo()
 	newHeader.Time = ctx.HeaderInfo().Time.Add(*params.MaxDepositPeriod).Add(time.Duration(1) * time.Second)
 	ctx = ctx.WithHeaderInfo(newHeader)
-	err = gov.EndBlocker(ctx, govKeeper)
+	err = govKeeper.EndBlocker(ctx)
 	require.NoError(t, err)
 
 	require.True(t, govHooksReceiver.AfterProposalFailedMinDepositValid)
 
-	p2, err := govKeeper.SubmitProposal(ctx, tp, "", "test", "summary", sdk.AccAddress("cosmos1ghekyjucln7y67ntx7cf27m9dpuxxemn4c8g4r"), false)
+	p2, err := govKeeper.SubmitProposal(ctx, tp, "", "test", "summary", sdk.AccAddress("cosmos1ghekyjucln7y67ntx7cf27m9dpuxxemn4c8g4r"), v1.ProposalType_PROPOSAL_TYPE_STANDARD)
 	require.NoError(t, err)
 
 	activated, err := govKeeper.AddDeposit(ctx, p2.Id, addrs[0], minDeposit)
@@ -103,7 +102,7 @@ func TestHooks(t *testing.T) {
 	newHeader = ctx.HeaderInfo()
 	newHeader.Time = ctx.HeaderInfo().Time.Add(*params.VotingPeriod).Add(time.Duration(1) * time.Second)
 	ctx = ctx.WithHeaderInfo(newHeader)
-	err = gov.EndBlocker(ctx, govKeeper)
+	err = govKeeper.EndBlocker(ctx)
 	require.NoError(t, err)
 	require.True(t, govHooksReceiver.AfterProposalVotingPeriodEndedValid)
 }

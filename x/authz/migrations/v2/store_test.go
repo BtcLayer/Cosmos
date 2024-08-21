@@ -6,15 +6,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	govtypes "cosmossdk.io/api/cosmos/gov/v1beta1"
 	"cosmossdk.io/core/header"
+	coretesting "cosmossdk.io/core/testing"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/authz"
 	v2 "cosmossdk.io/x/authz/migrations/v2"
 	authzmodule "cosmossdk.io/x/authz/module"
 	"cosmossdk.io/x/bank"
 	banktypes "cosmossdk.io/x/bank/types"
-	govtypes "cosmossdk.io/x/gov/types/v1beta1"
 
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/cosmos/cosmos-sdk/runtime"
@@ -24,7 +26,7 @@ import (
 )
 
 func TestMigration(t *testing.T) {
-	encodingConfig := moduletestutil.MakeTestEncodingConfig(authzmodule.AppModuleBasic{}, bank.AppModuleBasic{})
+	encodingConfig := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}, authzmodule.AppModule{}, bank.AppModule{})
 	cdc := encodingConfig.Codec
 
 	authzKey := storetypes.NewKVStoreKey("authz")
@@ -40,7 +42,7 @@ func TestMigration(t *testing.T) {
 	blockTime := ctx.HeaderInfo().Time
 	oneDay := blockTime.AddDate(0, 0, 1)
 	oneYear := blockTime.AddDate(1, 0, 0)
-	sendAuthz := banktypes.NewSendAuthorization(coins100, nil)
+	sendAuthz := banktypes.NewSendAuthorization(coins100, nil, codectestutil.CodecOptions{}.GetAddressCodec())
 
 	grants := []struct {
 		granter       sdk.AccAddress
@@ -104,6 +106,7 @@ func TestMigration(t *testing.T) {
 
 	storeService := runtime.NewKVStoreService(authzKey)
 	store := storeService.OpenKVStore(ctx)
+	env := runtime.NewEnvironment(storeService, coretesting.NewNopLogger())
 
 	for _, g := range grants {
 		grant := g.authorization()
@@ -112,7 +115,7 @@ func TestMigration(t *testing.T) {
 	}
 
 	ctx = ctx.WithHeaderInfo(header.Info{Time: ctx.HeaderInfo().Time.Add(1 * time.Hour)})
-	require.NoError(t, v2.MigrateStore(ctx, storeService, cdc))
+	require.NoError(t, v2.MigrateStore(ctx, env, cdc))
 
 	bz, err := store.Get(v2.GrantStoreKey(grantee1, granter2, genericMsgType))
 	require.NoError(t, err)

@@ -12,18 +12,18 @@ import (
 	"cosmossdk.io/log"
 	storetypes "cosmossdk.io/store/types"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/kv"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 )
 
 // SetupSimulation creates the config, db (levelDB), temporary directory and logger for the simulation tests.
 // If `skip` is false it skips the current test. `skip` should be set using the `FlagEnabledValue` flag.
-// Returns error on an invalid db intantiation or temp dir creation.
+// Returns error on an invalid db instantiation or temp dir creation.
 func SetupSimulation(config simtypes.Config, dirPrefix, dbName string, verbose, skip bool) (dbm.DB, string, log.Logger, bool, error) {
 	if !skip {
 		return nil, "", nil, true, nil
@@ -31,7 +31,7 @@ func SetupSimulation(config simtypes.Config, dirPrefix, dbName string, verbose, 
 
 	var logger log.Logger
 	if verbose {
-		logger = log.NewLogger(os.Stdout) // TODO(mr): enable selection of log destination.
+		logger = log.NewLogger(os.Stdout)
 	} else {
 		logger = log.NewNopLogger()
 	}
@@ -51,12 +51,15 @@ func SetupSimulation(config simtypes.Config, dirPrefix, dbName string, verbose, 
 
 // SimulationOperations retrieves the simulation params from the provided file path
 // and returns all the modules weighted operations
-func SimulationOperations(app runtime.AppSimI, cdc codec.JSONCodec, config simtypes.Config) []simtypes.WeightedOperation {
+func SimulationOperations(app runtime.AppSimI, cdc codec.Codec, config simtypes.Config, txConfig client.TxConfig) []simtypes.WeightedOperation {
+	signingCtx := cdc.InterfaceRegistry().SigningContext()
 	simState := module.SimulationState{
-		AppParams: make(simtypes.AppParams),
-		Cdc:       cdc,
-		TxConfig:  moduletestutil.MakeTestTxConfig(),
-		BondDenom: sdk.DefaultBondDenom,
+		AppParams:      make(simtypes.AppParams),
+		Cdc:            cdc,
+		AddressCodec:   signingCtx.AddressCodec(),
+		ValidatorCodec: signingCtx.ValidatorAddressCodec(),
+		TxConfig:       txConfig,
+		BondDenom:      sdk.DefaultBondDenom,
 	}
 
 	if config.ParamsFile != "" {

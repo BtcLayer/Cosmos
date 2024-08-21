@@ -9,13 +9,16 @@ import (
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
 	"cosmossdk.io/x/distribution/types"
-	stakingtypes "cosmossdk.io/x/staking/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+const (
+	maxReferenceCount = 2
+)
+
 // initialize rewards for a new validator
-func (k Keeper) initializeValidator(ctx context.Context, val stakingtypes.ValidatorI) error {
+func (k Keeper) initializeValidator(ctx context.Context, val sdk.ValidatorI) error {
 	valBz, err := k.stakingKeeper.ValidatorAddressCodec().StringToBytes(val.GetOperator())
 	if err != nil {
 		return err
@@ -44,7 +47,7 @@ func (k Keeper) initializeValidator(ctx context.Context, val stakingtypes.Valida
 }
 
 // increment validator period, returning the period just ended
-func (k Keeper) IncrementValidatorPeriod(ctx context.Context, val stakingtypes.ValidatorI) (uint64, error) {
+func (k Keeper) IncrementValidatorPeriod(ctx context.Context, val sdk.ValidatorI) (uint64, error) {
 	valBz, err := k.stakingKeeper.ValidatorAddressCodec().StringToBytes(val.GetOperator())
 	if err != nil {
 		return 0, err
@@ -61,7 +64,7 @@ func (k Keeper) IncrementValidatorPeriod(ctx context.Context, val stakingtypes.V
 	if val.GetTokens().IsZero() {
 
 		// can't calculate ratio for zero-token validators
-		// ergo we instead add to the community pool
+		// ergo we instead add to the decimal pool
 		feePool, err := k.FeePool.Get(ctx)
 		if err != nil {
 			return 0, err
@@ -72,7 +75,7 @@ func (k Keeper) IncrementValidatorPeriod(ctx context.Context, val stakingtypes.V
 			return 0, err
 		}
 
-		feePool.CommunityPool = feePool.CommunityPool.Add(rewards.Rewards...)
+		feePool.DecimalPool = feePool.DecimalPool.Add(rewards.Rewards...)
 		outstanding.Rewards = outstanding.GetRewards().Sub(rewards.Rewards)
 		err = k.FeePool.Set(ctx, feePool)
 		if err != nil {
@@ -125,10 +128,11 @@ func (k Keeper) incrementReferenceCount(ctx context.Context, valAddr sdk.ValAddr
 	if err != nil {
 		return err
 	}
-	if historical.ReferenceCount > 2 {
-		panic("reference count should never exceed 2")
-	}
+
 	historical.ReferenceCount++
+	if historical.ReferenceCount > maxReferenceCount {
+		return fmt.Errorf("reference count should never exceed %d", maxReferenceCount)
+	}
 	return k.ValidatorHistoricalRewards.Set(ctx, collections.Join(valAddr, period), historical)
 }
 
@@ -140,7 +144,7 @@ func (k Keeper) decrementReferenceCount(ctx context.Context, valAddr sdk.ValAddr
 	}
 
 	if historical.ReferenceCount == 0 {
-		panic("cannot set negative reference count")
+		return fmt.Errorf("cannot set negative reference count")
 	}
 	historical.ReferenceCount--
 	if historical.ReferenceCount == 0 {
@@ -152,10 +156,10 @@ func (k Keeper) decrementReferenceCount(ctx context.Context, valAddr sdk.ValAddr
 
 func (k Keeper) updateValidatorSlashFraction(ctx context.Context, valAddr sdk.ValAddress, fraction math.LegacyDec) error {
 	if fraction.GT(math.LegacyOneDec()) || fraction.IsNegative() {
-		panic(fmt.Sprintf("fraction must be >=0 and <=1, current fraction: %v", fraction))
+		return fmt.Errorf("fraction must be >=0 and <=1, current fraction: %v", fraction)
 	}
 
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	headerinfo := k.HeaderService.HeaderInfo(ctx)
 	val, err := k.stakingKeeper.Validator(ctx, valAddr)
 	if err != nil {
 		return err
@@ -174,8 +178,7 @@ func (k Keeper) updateValidatorSlashFraction(ctx context.Context, valAddr sdk.Va
 	}
 
 	slashEvent := types.NewValidatorSlashEvent(newPeriod, fraction)
-	height := uint64(sdkCtx.BlockHeight())
-
+	height := uint64(headerinfo.Height)
 	return k.ValidatorSlashEvents.Set(
 		ctx,
 		collections.Join3[sdk.ValAddress, uint64, uint64](

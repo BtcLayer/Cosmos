@@ -11,6 +11,7 @@ import (
 	"cosmossdk.io/x/distribution/simulation"
 	"cosmossdk.io/x/distribution/types"
 
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/kv"
@@ -18,26 +19,24 @@ import (
 )
 
 var (
-	delPk1    = ed25519.GenPrivKey().PubKey()
-	valAddr1  = sdk.ValAddress(delPk1.Address())
-	consAddr1 = sdk.ConsAddress(delPk1.Address().Bytes())
+	delPk1   = ed25519.GenPrivKey().PubKey()
+	valAddr1 = sdk.ValAddress(delPk1.Address())
 )
 
 func TestDecodeDistributionStore(t *testing.T) {
-	encodingConfig := moduletestutil.MakeTestEncodingConfig(distribution.AppModuleBasic{})
+	encodingConfig := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}, distribution.AppModule{})
 	cdc := encodingConfig.Codec
 
 	dec := simulation.NewDecodeStore(cdc)
 
 	decCoins := sdk.DecCoins{sdk.NewDecCoinFromDec(sdk.DefaultBondDenom, math.LegacyOneDec())}
 	feePool := types.InitialFeePool()
-	feePool.CommunityPool = decCoins
+	feePool.DecimalPool = decCoins
 	slashEvent := types.NewValidatorSlashEvent(10, math.LegacyOneDec())
 
 	kvPairs := kv.Pairs{
 		Pairs: []kv.Pair{
 			{Key: types.FeePoolKey, Value: cdc.MustMarshal(&feePool)},
-			{Key: types.ProposerKey, Value: consAddr1.Bytes()},
 			{Key: types.GetValidatorSlashEventKeyPrefix(valAddr1, 13), Value: cdc.MustMarshal(&slashEvent)},
 			{Key: []byte{0x99}, Value: []byte{0x99}},
 		},
@@ -48,7 +47,6 @@ func TestDecodeDistributionStore(t *testing.T) {
 		expectedLog string
 	}{
 		{"FeePool", fmt.Sprintf("%v\n%v", feePool, feePool)},
-		{"Proposer", fmt.Sprintf("%v\n%v", consAddr1, consAddr1)},
 		{"ValidatorSlashEvent", fmt.Sprintf("%v\n%v", slashEvent, slashEvent)},
 		{"other", ""},
 	}

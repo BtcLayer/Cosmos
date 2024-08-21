@@ -4,13 +4,13 @@ sidebar_position: 1
 # Events
 
 :::note Synopsis
-`Event`s are objects that contain information about the execution of the application. They are mainly used by service providers like block explorers and wallet to track the execution of various messages and index transactions.
+`Events` are objects that contain information about the execution of the application. They are mainly used by service providers like block explorers and wallet to track the execution of various messages and index transactions.
 :::
 
 :::note Pre-requisite Readings
 
 * [Anatomy of a Cosmos SDK application](../beginner/00-app-anatomy.md)
-* [CometBFT Documentation on Events](https://docs.cometbft.com/v0.37/spec/abci/abci++_basic_concepts#events)
+* [CometBFT Documentation on Events](https://docs.cometbft.com/v1.0/spec/abci/abci++_basic_concepts#events)
 
 :::
 
@@ -33,7 +33,7 @@ An Event contains:
 To parse the attribute values as strings, make sure to add `'` (single quotes) around each attribute value.
 :::
 
-_Typed Events_ are Protobuf-defined [messages](../../build/architecture/adr-032-typed-events.md) used by the Cosmos SDK
+_Typed Events_ are Protobuf-defined [messages](../../architecture/adr-032-typed-events.md) used by the Cosmos SDK
 for emitting and querying Events. They are defined in a `event.proto` file, on a **per-module basis** and are read as `proto.Message`.
 _Legacy Events_ are defined on a **per-module basis** in the module's `/types/events.go` file.
 They are triggered from the module's Protobuf [`Msg` service](../../build/building-modules/03-msg-services.md)
@@ -49,7 +49,7 @@ Lastly, Events are returned to the underlying consensus engine in the response o
 * [`Transaction Execution`](./00-baseapp.md#transactionexecution)
 
 ### Examples
-
+<!-- markdown-link-check-disable -->
 The following examples show how to query Events using the Cosmos SDK.
 
 | Event                                            | Description                                                                                                                                              |
@@ -58,7 +58,7 @@ The following examples show how to query Events using the Cosmos SDK.
 | `message.action='/cosmos.bank.v1beta1.Msg/Send'` | Query all transactions containing a x/bank `Send` [Service `Msg`](../../build/building-modules/03-msg-services.md). Note the `'`s around the value.                  |
 | `message.module='bank'`                          | Query all transactions containing messages from the x/bank module. Note the `'`s around the value.                                                       |
 | `create_validator.validator='cosmosval1...'`     | x/staking-specific Event, see [x/staking SPEC](../../build/modules/staking/README.md).                                                         |
-
+<!-- markdown-link-check-enable -->
 ## EventManager
 
 In Cosmos SDK applications, Events are managed by an abstraction called the `EventManager`.
@@ -103,7 +103,7 @@ view on how to typically implement Events and use the `EventManager` in modules.
 
 ## Subscribing to Events
 
-You can use CometBFT's [Websocket](https://docs.cometbft.com/v0.37/core/subscription) to subscribe to Events by calling the `subscribe` RPC method:
+You can use CometBFT's [Websocket](https://docs.cometbft.com/v1.0/explanation/core/subscription) to subscribe to Events by calling the `subscribe` RPC method:
 
 ```json
 {

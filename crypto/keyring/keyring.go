@@ -3,6 +3,7 @@ package keyring
 import (
 	"bufio"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/99designs/keyring"
-	"github.com/cockroachdb/errors"
 	"github.com/cosmos/go-bip39"
 	"golang.org/x/crypto/bcrypt"
 
@@ -56,12 +56,16 @@ var (
 
 // Keyring exposes operations over a backend supported by github.com/99designs/keyring.
 type Keyring interface {
-	// Get the backend type used in the keyring config: "file", "os", "kwallet", "pass", "test", "memory".
+	// Backend get the backend type used in the keyring config: "file", "os", "kwallet", "pass", "test", "memory".
 	Backend() string
+
+	// DB get the db keyring used in the keystore.
+	DB() keyring.Keyring
+
 	// List all keys.
 	List() ([]*Record, error)
 
-	// Supported signing algorithms for Keyring and Ledger respectively.
+	// SupportedAlgorithms supported signing algorithms for Keyring and Ledger respectively.
 	SupportedAlgorithms() (SigningAlgoList, SigningAlgoList)
 
 	// Key and KeyByAddress return keys by uid and address respectively.
@@ -130,7 +134,7 @@ type Migrator interface {
 
 // Exporter is implemented by key stores that support export of public and private keys.
 type Exporter interface {
-	// Export public key
+	// ExportPubKeyArmor export public key
 	ExportPubKeyArmor(uid string) (string, error)
 	ExportPubKeyArmorByAddress(address []byte) (string, error)
 
@@ -254,6 +258,11 @@ func newKeystore(kr keyring.Keyring, cdc codec.Codec, backend string, opts ...Op
 // Backend returns the keyring backend option used in the config
 func (ks keystore) Backend() string {
 	return ks.backend
+}
+
+// DB returns the db keyring used in the keystore
+func (ks keystore) DB() keyring.Keyring {
+	return ks.db
 }
 
 func (ks keystore) ExportPubKeyArmor(uid string) (string, error) {
@@ -435,7 +444,7 @@ func (ks keystore) SaveLedgerKey(uid string, algo SignatureAlgo, hrp string, coi
 
 	priv, _, err := ledger.NewPrivKeySecp256k1(*hdPath, hrp)
 	if err != nil {
-		return nil, errors.CombineErrors(ErrLedgerGenerateKey, err)
+		return nil, errorsmod.Wrap(ErrLedgerGenerateKey, err.Error())
 	}
 
 	return ks.writeLedgerKey(uid, priv.PubKey(), hdPath)
@@ -534,7 +543,7 @@ func (ks keystore) KeyByAddress(address []byte) (*Record, error) {
 }
 
 func wrapKeyNotFound(err error, msg string) error {
-	if err == keyring.ErrKeyNotFound {
+	if errors.Is(err, keyring.ErrKeyNotFound) {
 		return errorsmod.Wrap(sdkerrors.ErrKeyNotFound, msg)
 	}
 	return err
@@ -633,6 +642,14 @@ func SignWithLedger(k *Record, msg []byte, signMode signing.SignMode) (sig []byt
 	priv, err := ledger.NewPrivKeySecp256k1Unsafe(*path)
 	if err != nil {
 		return nil, nil, err
+	}
+	ledgerPubKey := priv.PubKey()
+	pubKey, err := k.GetPubKey()
+	if err != nil {
+		return nil, nil, err
+	}
+	if !pubKey.Equals(ledgerPubKey) {
+		return nil, nil, fmt.Errorf("the public key that the user attempted to sign with does not match the public key on the ledger device. %v does not match %v", pubKey.String(), ledgerPubKey.String())
 	}
 
 	switch signMode {
@@ -822,7 +839,7 @@ func (ks keystore) writeRecord(k *Record) error {
 
 	serializedRecord, err := ks.cdc.Marshal(k)
 	if err != nil {
-		return errors.CombineErrors(ErrUnableToSerialize, err)
+		return errorsmod.Wrap(ErrUnableToSerialize, err.Error())
 	}
 
 	item := keyring.Item{
@@ -916,7 +933,7 @@ func (ks keystore) MigrateAll() ([]*Record, error) {
 
 		rec, err := ks.migrate(key)
 		if err != nil {
-			fmt.Printf("migrate err for key %s: %q\n", key, err)
+			fmt.Fprintf(os.Stderr, "migrate err for key %s: %q\n", key, err)
 			continue
 		}
 
@@ -977,7 +994,7 @@ func (ks keystore) migrate(key string) (*Record, error) {
 
 	serializedRecord, err := ks.cdc.Marshal(k)
 	if err != nil {
-		return nil, errors.CombineErrors(ErrUnableToSerialize, err)
+		return nil, errorsmod.Wrap(ErrUnableToSerialize, err.Error())
 	}
 
 	item = keyring.Item{
@@ -990,7 +1007,7 @@ func (ks keystore) migrate(key string) (*Record, error) {
 		return nil, errorsmod.Wrap(err, "unable to set keyring.Item")
 	}
 
-	fmt.Printf("Successfully migrated key %s.\n", key)
+	fmt.Fprintf(os.Stderr, "Successfully migrated key %s.\n", key)
 
 	return k, nil
 }

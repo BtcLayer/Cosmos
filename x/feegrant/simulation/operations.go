@@ -7,7 +7,6 @@ import (
 	"cosmossdk.io/x/feegrant"
 	"cosmossdk.io/x/feegrant/keeper"
 
-	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -65,7 +64,7 @@ func WeightedOperations(
 		),
 		simulation.NewWeightedOperation(
 			weightMsgRevokeAllowance,
-			SimulateMsgRevokeAllowance(pCdc, txConfig, ak, bk, k, ac),
+			SimulateMsgRevokeAllowance(pCdc, txConfig, ak, bk, k),
 		),
 	}
 }
@@ -79,7 +78,7 @@ func SimulateMsgGrantAllowance(
 	k keeper.Keeper,
 ) simtypes.Operation {
 	return func(
-		r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chainID string,
+		r *rand.Rand, app simtypes.AppEntrypoint, ctx sdk.Context, accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		granter, _ := simtypes.RandomAcc(r, accs)
 		grantee, _ := simtypes.RandomAcc(r, accs)
@@ -141,21 +140,20 @@ func SimulateMsgRevokeAllowance(
 	ak feegrant.AccountKeeper,
 	bk feegrant.BankKeeper,
 	k keeper.Keeper,
-	ac address.Codec,
 ) simtypes.Operation {
 	return func(
-		r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chainID string,
+		r *rand.Rand, app simtypes.AppEntrypoint, ctx sdk.Context, accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		hasGrant := false
 
 		var granterAddr sdk.AccAddress
 		var granteeAddr sdk.AccAddress
 		err := k.IterateAllFeeAllowances(ctx, func(grant feegrant.Grant) bool {
-			granter, err := ac.StringToBytes(grant.Granter)
+			granter, err := ak.AddressCodec().StringToBytes(grant.Granter)
 			if err != nil {
 				panic(err)
 			}
-			grantee, err := ac.StringToBytes(grant.Grantee)
+			grantee, err := ak.AddressCodec().StringToBytes(grant.Grantee)
 			if err != nil {
 				panic(err)
 			}

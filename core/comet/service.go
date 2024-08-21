@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-// BlockInfoService is an interface that can be used to get information specific to Comet
-type CometInfoService interface {
-	GetCometInfo(context.Context) Info
+// Service is an interface that can be used to get information specific to Comet
+type Service interface {
+	CometInfo(context.Context) Info
 }
 
 // Info is the information comet provides apps in ABCI
@@ -50,7 +50,7 @@ type VoteInfo struct {
 	BlockIDFlag BlockIDFlag
 }
 
-// BlockIdFlag indicates which BlockID the signature is for
+// BlockIDFlag indicates which BlockID the signature is for
 type BlockIDFlag int32
 
 const (

@@ -5,6 +5,7 @@ package types
 
 import (
 	context "context"
+	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
 	github_com_cosmos_cosmos_sdk_types "github.com/cosmos/cosmos-sdk/types"
@@ -118,7 +119,7 @@ var xxx_messageInfo_MsgFundCommunityPoolResponse proto.InternalMessageInfo
 // pool to another account. This message is typically executed via a governance
 // proposal with the governance module being the executing authority.
 type MsgCommunityPoolSpend struct {
-	// authority is the address that controls the module (defaults to x/gov unless overwritten).
+	// Authority is the address that controls the module (defaults to x/gov unless overwritten).
 	Authority string                                   `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
 	Recipient string                                   `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
 	Amount    github_com_cosmos_cosmos_sdk_types.Coins `protobuf:"bytes,3,rep,name=amount,proto3,castrepeated=github.com/cosmos/cosmos-sdk/types.Coins" json:"amount"`
@@ -218,16 +219,16 @@ var xxx_messageInfo_MsgCommunityPoolSpendResponse proto.InternalMessageInfo
 
 // MsgSubmitBudgetProposal defines budget proposal type.
 type MsgSubmitBudgetProposal struct {
-	// authority is the address that controls the module (defaults to x/gov unless overwritten).
+	// Authority is the address that controls the module (defaults to x/gov unless overwritten).
 	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
-	// recipient_address is the address of the recipient who can claim the budget.
+	// RecipientAddress is the address of the recipient who can claim the budget.
 	RecipientAddress string `protobuf:"bytes,2,opt,name=recipient_address,json=recipientAddress,proto3" json:"recipient_address,omitempty"`
-	// total_budget is the total amount allocated for the budget.
-	TotalBudget *types.Coin `protobuf:"bytes,3,opt,name=total_budget,json=totalBudget,proto3" json:"total_budget,omitempty"`
-	// start_time is the time when the budget becomes claimable.
-	// If start_time is less than the current block time, proposal will not be accepted.
+	// BudgetPerTranche is the amount allocated per tranche.
+	BudgetPerTranche *types.Coin `protobuf:"bytes,3,opt,name=budget_per_tranche,json=budgetPerTranche,proto3" json:"budget_per_tranche,omitempty"`
+	// StartTime is the time when the budget becomes claimable.
+	// If StartTime is less than the current block time, proposal will not be accepted.
 	StartTime *time.Time `protobuf:"bytes,4,opt,name=start_time,json=startTime,proto3,stdtime" json:"start_time,omitempty"`
-	// tranches is the number of times the total budget amount is to be distributed.
+	// Tranches is the number of times the budget amount is to be distributed.
 	Tranches uint64 `protobuf:"varint,5,opt,name=tranches,proto3" json:"tranches,omitempty"`
 	// Period is the time interval(number of seconds) at which funds distribution should be performed.
 	// For example, if a period is set to 3600, it represents an action that
@@ -282,9 +283,9 @@ func (m *MsgSubmitBudgetProposal) GetRecipientAddress() string {
 	return ""
 }
 
-func (m *MsgSubmitBudgetProposal) GetTotalBudget() *types.Coin {
+func (m *MsgSubmitBudgetProposal) GetBudgetPerTranche() *types.Coin {
 	if m != nil {
-		return m.TotalBudget
+		return m.BudgetPerTranche
 	}
 	return nil
 }
@@ -439,6 +440,332 @@ func (m *MsgClaimBudgetResponse) GetAmount() types.Coin {
 	return types.Coin{}
 }
 
+// MsgCreateContinuousFund defines a message for adding continuous funds.
+type MsgCreateContinuousFund struct {
+	// Authority is the address that controls the module (defaults to x/gov unless overwritten).
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	// Recipient address of the account receiving funds.
+	Recipient string `protobuf:"bytes,2,opt,name=recipient,proto3" json:"recipient,omitempty"`
+	// Percentage is the percentage of funds to be allocated from Community pool.
+	Percentage cosmossdk_io_math.LegacyDec `protobuf:"bytes,3,opt,name=percentage,proto3,customtype=cosmossdk.io/math.LegacyDec" json:"percentage"`
+	// Optional, if expiry is set, removes the state object when expired.
+	Expiry *time.Time `protobuf:"bytes,4,opt,name=expiry,proto3,stdtime" json:"expiry,omitempty"`
+}
+
+func (m *MsgCreateContinuousFund) Reset()         { *m = MsgCreateContinuousFund{} }
+func (m *MsgCreateContinuousFund) String() string { return proto.CompactTextString(m) }
+func (*MsgCreateContinuousFund) ProtoMessage()    {}
+func (*MsgCreateContinuousFund) Descriptor() ([]byte, []int) {
+	return fileDescriptor_09efe14517e7f6dc, []int{8}
+}
+func (m *MsgCreateContinuousFund) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgCreateContinuousFund) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgCreateContinuousFund.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgCreateContinuousFund) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgCreateContinuousFund.Merge(m, src)
+}
+func (m *MsgCreateContinuousFund) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgCreateContinuousFund) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgCreateContinuousFund.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgCreateContinuousFund proto.InternalMessageInfo
+
+func (m *MsgCreateContinuousFund) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgCreateContinuousFund) GetRecipient() string {
+	if m != nil {
+		return m.Recipient
+	}
+	return ""
+}
+
+func (m *MsgCreateContinuousFund) GetExpiry() *time.Time {
+	if m != nil {
+		return m.Expiry
+	}
+	return nil
+}
+
+// MsgCreateContinuousFundResponse defines the response to executing a
+// MsgCreateContinuousFund message.
+type MsgCreateContinuousFundResponse struct {
+}
+
+func (m *MsgCreateContinuousFundResponse) Reset()         { *m = MsgCreateContinuousFundResponse{} }
+func (m *MsgCreateContinuousFundResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgCreateContinuousFundResponse) ProtoMessage()    {}
+func (*MsgCreateContinuousFundResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_09efe14517e7f6dc, []int{9}
+}
+func (m *MsgCreateContinuousFundResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgCreateContinuousFundResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgCreateContinuousFundResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgCreateContinuousFundResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgCreateContinuousFundResponse.Merge(m, src)
+}
+func (m *MsgCreateContinuousFundResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgCreateContinuousFundResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgCreateContinuousFundResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgCreateContinuousFundResponse proto.InternalMessageInfo
+
+// MsgCancelContinuousFund defines a message to cancel continuous funds for a specific recipient.
+type MsgCancelContinuousFund struct {
+	// Authority is the account address of authority.
+	Authority string `protobuf:"bytes,1,opt,name=authority,proto3" json:"authority,omitempty"`
+	// RecipientAddress is the account address of recipient whose funds are to be cancelled.
+	RecipientAddress string `protobuf:"bytes,2,opt,name=recipient_address,json=recipientAddress,proto3" json:"recipient_address,omitempty"`
+}
+
+func (m *MsgCancelContinuousFund) Reset()         { *m = MsgCancelContinuousFund{} }
+func (m *MsgCancelContinuousFund) String() string { return proto.CompactTextString(m) }
+func (*MsgCancelContinuousFund) ProtoMessage()    {}
+func (*MsgCancelContinuousFund) Descriptor() ([]byte, []int) {
+	return fileDescriptor_09efe14517e7f6dc, []int{10}
+}
+func (m *MsgCancelContinuousFund) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgCancelContinuousFund) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgCancelContinuousFund.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgCancelContinuousFund) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgCancelContinuousFund.Merge(m, src)
+}
+func (m *MsgCancelContinuousFund) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgCancelContinuousFund) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgCancelContinuousFund.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgCancelContinuousFund proto.InternalMessageInfo
+
+func (m *MsgCancelContinuousFund) GetAuthority() string {
+	if m != nil {
+		return m.Authority
+	}
+	return ""
+}
+
+func (m *MsgCancelContinuousFund) GetRecipientAddress() string {
+	if m != nil {
+		return m.RecipientAddress
+	}
+	return ""
+}
+
+// MsgCancelContinuousFundResponse defines the response to executing a
+// MsgCancelContinuousFund message.
+type MsgCancelContinuousFundResponse struct {
+	// CanceledTime is the canceled time.
+	CanceledTime time.Time `protobuf:"bytes,1,opt,name=canceled_time,json=canceledTime,proto3,stdtime" json:"canceled_time"`
+	// CanceledHeight defines the canceled block height.
+	CanceledHeight uint64 `protobuf:"varint,2,opt,name=canceled_height,json=canceledHeight,proto3" json:"canceled_height,omitempty"`
+	// RecipientAddress is the account address of recipient whose funds are cancelled.
+	RecipientAddress string `protobuf:"bytes,3,opt,name=recipient_address,json=recipientAddress,proto3" json:"recipient_address,omitempty"`
+	// withdrawnAllocatedFund represents the fund allocated to this recipient (if any) that have not been withdrawn yet,
+	// before a cancellation request has been initiated.
+	// It involves first withdrawing the funds and then canceling the request.
+	WithdrawnAllocatedFund types.Coin `protobuf:"bytes,4,opt,name=withdrawn_allocated_fund,json=withdrawnAllocatedFund,proto3,castrepeated=github.com/cosmos/cosmos-sdk/types.Coins" json:"withdrawn_allocated_fund"`
+}
+
+func (m *MsgCancelContinuousFundResponse) Reset()         { *m = MsgCancelContinuousFundResponse{} }
+func (m *MsgCancelContinuousFundResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgCancelContinuousFundResponse) ProtoMessage()    {}
+func (*MsgCancelContinuousFundResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_09efe14517e7f6dc, []int{11}
+}
+func (m *MsgCancelContinuousFundResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgCancelContinuousFundResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgCancelContinuousFundResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgCancelContinuousFundResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgCancelContinuousFundResponse.Merge(m, src)
+}
+func (m *MsgCancelContinuousFundResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgCancelContinuousFundResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgCancelContinuousFundResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgCancelContinuousFundResponse proto.InternalMessageInfo
+
+func (m *MsgCancelContinuousFundResponse) GetCanceledTime() time.Time {
+	if m != nil {
+		return m.CanceledTime
+	}
+	return time.Time{}
+}
+
+func (m *MsgCancelContinuousFundResponse) GetCanceledHeight() uint64 {
+	if m != nil {
+		return m.CanceledHeight
+	}
+	return 0
+}
+
+func (m *MsgCancelContinuousFundResponse) GetRecipientAddress() string {
+	if m != nil {
+		return m.RecipientAddress
+	}
+	return ""
+}
+
+func (m *MsgCancelContinuousFundResponse) GetWithdrawnAllocatedFund() types.Coin {
+	if m != nil {
+		return m.WithdrawnAllocatedFund
+	}
+	return types.Coin{}
+}
+
+// MsgWithdrawContinuousFund defines a message for withdrawing the continuous fund allocated to it.
+type MsgWithdrawContinuousFund struct {
+	RecipientAddress string `protobuf:"bytes,1,opt,name=recipient_address,json=recipientAddress,proto3" json:"recipient_address,omitempty"`
+}
+
+func (m *MsgWithdrawContinuousFund) Reset()         { *m = MsgWithdrawContinuousFund{} }
+func (m *MsgWithdrawContinuousFund) String() string { return proto.CompactTextString(m) }
+func (*MsgWithdrawContinuousFund) ProtoMessage()    {}
+func (*MsgWithdrawContinuousFund) Descriptor() ([]byte, []int) {
+	return fileDescriptor_09efe14517e7f6dc, []int{12}
+}
+func (m *MsgWithdrawContinuousFund) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgWithdrawContinuousFund) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgWithdrawContinuousFund.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgWithdrawContinuousFund) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgWithdrawContinuousFund.Merge(m, src)
+}
+func (m *MsgWithdrawContinuousFund) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgWithdrawContinuousFund) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgWithdrawContinuousFund.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgWithdrawContinuousFund proto.InternalMessageInfo
+
+func (m *MsgWithdrawContinuousFund) GetRecipientAddress() string {
+	if m != nil {
+		return m.RecipientAddress
+	}
+	return ""
+}
+
+// MsgWithdrawContinuousFundResponse defines the response to executing a
+// MsgWithdrawContinuousFund message.
+type MsgWithdrawContinuousFundResponse struct {
+	Amount types.Coin `protobuf:"bytes,1,opt,name=amount,proto3,castrepeated=github.com/cosmos/cosmos-sdk/types.Coins" json:"amount"`
+}
+
+func (m *MsgWithdrawContinuousFundResponse) Reset()         { *m = MsgWithdrawContinuousFundResponse{} }
+func (m *MsgWithdrawContinuousFundResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgWithdrawContinuousFundResponse) ProtoMessage()    {}
+func (*MsgWithdrawContinuousFundResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_09efe14517e7f6dc, []int{13}
+}
+func (m *MsgWithdrawContinuousFundResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgWithdrawContinuousFundResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgWithdrawContinuousFundResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgWithdrawContinuousFundResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgWithdrawContinuousFundResponse.Merge(m, src)
+}
+func (m *MsgWithdrawContinuousFundResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgWithdrawContinuousFundResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgWithdrawContinuousFundResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgWithdrawContinuousFundResponse proto.InternalMessageInfo
+
+func (m *MsgWithdrawContinuousFundResponse) GetAmount() types.Coin {
+	if m != nil {
+		return m.Amount
+	}
+	return types.Coin{}
+}
+
 func init() {
 	proto.RegisterType((*MsgFundCommunityPool)(nil), "cosmos.protocolpool.v1.MsgFundCommunityPool")
 	proto.RegisterType((*MsgFundCommunityPoolResponse)(nil), "cosmos.protocolpool.v1.MsgFundCommunityPoolResponse")
@@ -448,58 +775,81 @@ func init() {
 	proto.RegisterType((*MsgSubmitBudgetProposalResponse)(nil), "cosmos.protocolpool.v1.MsgSubmitBudgetProposalResponse")
 	proto.RegisterType((*MsgClaimBudget)(nil), "cosmos.protocolpool.v1.MsgClaimBudget")
 	proto.RegisterType((*MsgClaimBudgetResponse)(nil), "cosmos.protocolpool.v1.MsgClaimBudgetResponse")
+	proto.RegisterType((*MsgCreateContinuousFund)(nil), "cosmos.protocolpool.v1.MsgCreateContinuousFund")
+	proto.RegisterType((*MsgCreateContinuousFundResponse)(nil), "cosmos.protocolpool.v1.MsgCreateContinuousFundResponse")
+	proto.RegisterType((*MsgCancelContinuousFund)(nil), "cosmos.protocolpool.v1.MsgCancelContinuousFund")
+	proto.RegisterType((*MsgCancelContinuousFundResponse)(nil), "cosmos.protocolpool.v1.MsgCancelContinuousFundResponse")
+	proto.RegisterType((*MsgWithdrawContinuousFund)(nil), "cosmos.protocolpool.v1.MsgWithdrawContinuousFund")
+	proto.RegisterType((*MsgWithdrawContinuousFundResponse)(nil), "cosmos.protocolpool.v1.MsgWithdrawContinuousFundResponse")
 }
 
 func init() { proto.RegisterFile("cosmos/protocolpool/v1/tx.proto", fileDescriptor_09efe14517e7f6dc) }
 
 var fileDescriptor_09efe14517e7f6dc = []byte{
-	// 721 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xcf, 0x4f, 0xdb, 0x48,
-	0x14, 0xce, 0x90, 0x10, 0x6d, 0x86, 0x15, 0x5a, 0xac, 0x6c, 0x30, 0x16, 0x6b, 0x87, 0x1c, 0x56,
-	0x11, 0x5a, 0xec, 0x0d, 0xfb, 0x03, 0x89, 0x56, 0xaa, 0x1a, 0xda, 0xde, 0x22, 0xa1, 0xd0, 0x53,
-	0x2f, 0x91, 0x13, 0x4f, 0xcd, 0x88, 0xd8, 0xcf, 0xf2, 0x8c, 0x29, 0x54, 0xaa, 0x84, 0x7a, 0xea,
-	0x91, 0x63, 0x8f, 0x9c, 0x7b, 0xe2, 0xd0, 0x3f, 0x02, 0xa9, 0x17, 0xd4, 0x53, 0x4f, 0xa5, 0x0a,
-	0x07, 0x2a, 0xf5, 0x5f, 0xe8, 0xa1, 0xb2, 0x3d, 0x71, 0x12, 0xe2, 0x86, 0xa6, 0x12, 0xa7, 0x24,
-	0xef, 0x7d, 0xef, 0x7b, 0xdf, 0xfb, 0x66, 0xde, 0x04, 0x6b, 0x1d, 0x60, 0x0e, 0x30, 0xc3, 0xf3,
-	0x81, 0x43, 0x07, 0xba, 0x1e, 0x40, 0xd7, 0xd8, 0xaf, 0x19, 0xfc, 0x40, 0x8f, 0x42, 0x52, 0x29,
-	0x06, 0xe8, 0xc3, 0x00, 0x7d, 0xbf, 0xa6, 0x14, 0x6d, 0xb0, 0x21, 0x0a, 0x1a, 0xe1, 0xb7, 0x38,
-	0xaf, 0xa8, 0x82, 0xae, 0x6d, 0x32, 0x62, 0xec, 0xd7, 0xda, 0x84, 0x9b, 0x35, 0xa3, 0x03, 0xd4,
-	0x15, 0xf9, 0xa5, 0x38, 0xdf, 0x8a, 0x0b, 0x87, 0xa9, 0x95, 0x45, 0x51, 0xea, 0x30, 0x3b, 0x14,
-	0xe0, 0x30, 0x5b, 0x24, 0x34, 0x1b, 0xc0, 0xee, 0x92, 0x58, 0x62, 0x3b, 0x78, 0x6a, 0x70, 0xea,
-	0x10, 0xc6, 0x4d, 0xc7, 0xeb, 0x37, 0xbd, 0x0e, 0xb0, 0x02, 0xdf, 0xe4, 0x14, 0x44, 0xd3, 0xca,
-	0x3b, 0x84, 0x8b, 0x0d, 0x66, 0x3f, 0x0a, 0x5c, 0x6b, 0x0b, 0x1c, 0x27, 0x70, 0x29, 0x3f, 0xdc,
-	0x06, 0xe8, 0x4a, 0x1d, 0x9c, 0x37, 0x1d, 0x08, 0x5c, 0x2e, 0xa3, 0x72, 0xb6, 0x3a, 0xb7, 0xbe,
-	0xa4, 0x0b, 0x45, 0xa1, 0x7c, 0x5d, 0xc8, 0xd7, 0xb7, 0x80, 0xba, 0xf5, 0xbf, 0xcf, 0x3e, 0x6a,
-	0x99, 0x37, 0x17, 0x5a, 0xd5, 0xa6, 0x7c, 0x37, 0x68, 0xeb, 0x1d, 0x70, 0x84, 0x7c, 0xf1, 0xb1,
-	0xc6, 0xac, 0x3d, 0x83, 0x1f, 0x7a, 0x84, 0x45, 0x05, 0xac, 0x29, 0xa8, 0xa5, 0xff, 0x71, 0xc1,
-	0x22, 0x1e, 0x30, 0xca, 0xc1, 0x97, 0x67, 0xca, 0xa8, 0x5a, 0xa8, 0xcb, 0xef, 0xdf, 0xae, 0x15,
-	0x45, 0xab, 0xfb, 0x96, 0xe5, 0x13, 0xc6, 0x76, 0xb8, 0x4f, 0x5d, 0xbb, 0x39, 0x80, 0x6e, 0x96,
-	0x5e, 0x9d, 0x68, 0x99, 0xcf, 0x27, 0x5a, 0xe6, 0xe5, 0xd5, 0xe9, 0xea, 0x20, 0x5e, 0x51, 0xf1,
-	0x72, 0xda, 0x30, 0x4d, 0xc2, 0x3c, 0x70, 0x19, 0xa9, 0xf4, 0x10, 0xfe, 0xbd, 0xc1, 0xec, 0x91,
-	0xe4, 0x8e, 0x47, 0x5c, 0x2b, 0x54, 0x62, 0x06, 0x7c, 0x17, 0x7c, 0xca, 0x0f, 0x65, 0x74, 0x93,
-	0x92, 0x04, 0x2a, 0x2d, 0xe3, 0x82, 0x4f, 0x3a, 0xd4, 0xa3, 0xc4, 0xe5, 0xf1, 0x04, 0xcd, 0x41,
-	0x60, 0xc8, 0xc4, 0xec, 0xad, 0x99, 0xb8, 0x39, 0x1f, 0x99, 0x90, 0x48, 0xaa, 0x68, 0xf8, 0x8f,
-	0xd4, 0x19, 0x13, 0x17, 0xbe, 0xce, 0xe0, 0xc5, 0x06, 0xb3, 0x77, 0x82, 0xb6, 0x43, 0x79, 0x3d,
-	0xb0, 0x6c, 0xc2, 0xb7, 0x7d, 0xf0, 0x80, 0x99, 0xdd, 0x9f, 0xf6, 0xe1, 0x21, 0x5e, 0x48, 0xc6,
-	0x6e, 0x99, 0x31, 0xea, 0xc6, 0x13, 0xfd, 0x2d, 0x29, 0x11, 0x71, 0xe9, 0x2e, 0xfe, 0x95, 0x03,
-	0x37, 0xbb, 0xad, 0x76, 0x24, 0x4b, 0xce, 0x96, 0xd1, 0x44, 0xdb, 0x9a, 0x73, 0x11, 0x3c, 0x1e,
-	0x42, 0xba, 0x87, 0x31, 0xe3, 0xa6, 0xcf, 0x5b, 0xe1, 0x16, 0xc8, 0xb9, 0xa8, 0x56, 0xd1, 0xe3,
-	0x0d, 0xd0, 0xfb, 0x1b, 0xa0, 0x3f, 0xee, 0xaf, 0x48, 0x3d, 0x77, 0x7c, 0xa1, 0xa1, 0x66, 0x21,
-	0xaa, 0x09, 0xa3, 0x92, 0x82, 0x7f, 0xe1, 0xbe, 0xe9, 0x76, 0x76, 0x09, 0x93, 0x67, 0xcb, 0xa8,
-	0x9a, 0x6b, 0x26, 0xbf, 0xa5, 0x0d, 0x9c, 0xf7, 0x88, 0x4f, 0xc1, 0x92, 0xf3, 0x42, 0xd4, 0x75,
-	0xe2, 0x07, 0x62, 0xb5, 0xea, 0xb9, 0xd7, 0x21, 0xaf, 0x80, 0x8f, 0x9d, 0xcf, 0x0a, 0xd6, 0xbe,
-	0xe3, 0x7e, 0x72, 0x42, 0x80, 0xe7, 0xc3, 0x23, 0xec, 0x9a, 0xd4, 0x11, 0xa3, 0xa5, 0xfa, 0x8b,
-	0xa6, 0xf5, 0x77, 0xb3, 0x14, 0x6a, 0x19, 0x67, 0xaa, 0xbc, 0xc0, 0xa5, 0xd1, 0x86, 0x7d, 0x29,
-	0x23, 0xef, 0x00, 0xba, 0xa5, 0x2b, 0xbc, 0xfe, 0x25, 0x8b, 0xb3, 0x0d, 0x66, 0x4b, 0xcf, 0xf0,
-	0xc2, 0xf8, 0x4b, 0xf4, 0x97, 0x9e, 0xfe, 0xcc, 0xea, 0x69, 0xab, 0xae, 0xfc, 0x3b, 0x0d, 0x3a,
-	0x99, 0xf2, 0x39, 0x96, 0x52, 0x1e, 0x85, 0xb5, 0x09, 0x5c, 0xe3, 0x70, 0xe5, 0xbf, 0xa9, 0xe0,
-	0x49, 0xef, 0x23, 0x84, 0x8b, 0xa9, 0xbb, 0x68, 0x4c, 0xe0, 0x4b, 0x2b, 0x50, 0x36, 0xa6, 0x2c,
-	0x48, 0x24, 0x10, 0x3c, 0x37, 0x7c, 0xd9, 0xfe, 0x9c, 0x34, 0xc8, 0x00, 0xa7, 0xe8, 0x3f, 0x86,
-	0xeb, 0xb7, 0x51, 0x66, 0x8f, 0xae, 0x4e, 0x57, 0x51, 0xfd, 0xce, 0x59, 0x4f, 0x45, 0xe7, 0x3d,
-	0x15, 0x7d, 0xea, 0xa9, 0xe8, 0xf8, 0x52, 0xcd, 0x9c, 0x5f, 0xaa, 0x99, 0x0f, 0x97, 0x6a, 0xe6,
-	0xc9, 0x4a, 0xcc, 0xc7, 0xac, 0x3d, 0x9d, 0x82, 0x71, 0x30, 0xfa, 0xcf, 0x1b, 0x5d, 0x9c, 0x76,
-	0x3e, 0x8a, 0xfd, 0xf3, 0x2d, 0x00, 0x00, 0xff, 0xff, 0x0e, 0x57, 0x45, 0x9e, 0x9d, 0x07, 0x00,
-	0x00,
+	// 1006 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x57, 0xcf, 0x6f, 0x1b, 0x45,
+	0x14, 0xf6, 0xc4, 0xae, 0x55, 0x4f, 0x21, 0xb4, 0xab, 0xe0, 0x6e, 0x96, 0xe2, 0x4d, 0x7c, 0x80,
+	0xa8, 0x22, 0xbb, 0xb8, 0x40, 0x0b, 0xe1, 0x80, 0xea, 0x84, 0x5f, 0x12, 0x96, 0xc2, 0xa6, 0x12,
+	0x12, 0x17, 0x6b, 0xbc, 0x3b, 0x5d, 0x8f, 0xba, 0xbb, 0xb3, 0xda, 0x99, 0x4d, 0xe2, 0x4a, 0x48,
+	0x15, 0x12, 0xd0, 0x63, 0x8f, 0x1c, 0x7b, 0x42, 0x88, 0x53, 0x0f, 0xfd, 0x23, 0x2a, 0x71, 0xa9,
+	0x7a, 0x42, 0x1c, 0x5a, 0x94, 0x20, 0x95, 0xbf, 0x81, 0x13, 0xda, 0x9d, 0xf1, 0xda, 0x8e, 0xd7,
+	0x9b, 0xba, 0x4a, 0x38, 0xd9, 0x7e, 0xf3, 0xbe, 0xf7, 0xbe, 0xf7, 0xcd, 0x7b, 0x33, 0x63, 0xa8,
+	0xdb, 0x94, 0xf9, 0x94, 0x99, 0x61, 0x44, 0x39, 0xb5, 0xa9, 0x17, 0x52, 0xea, 0x99, 0xbb, 0x2d,
+	0x93, 0xef, 0x1b, 0xa9, 0x49, 0xa9, 0x0b, 0x07, 0x63, 0xdc, 0xc1, 0xd8, 0x6d, 0x69, 0x4b, 0x2e,
+	0x75, 0x69, 0x6a, 0x34, 0x93, 0x6f, 0x62, 0x5d, 0x6b, 0xc8, 0x70, 0x3d, 0xc4, 0xb0, 0xb9, 0xdb,
+	0xea, 0x61, 0x8e, 0x5a, 0xa6, 0x4d, 0x49, 0x20, 0xd7, 0x97, 0xc5, 0x7a, 0x57, 0x00, 0xc7, 0x43,
+	0x6b, 0x17, 0x25, 0xd4, 0x67, 0x6e, 0x42, 0xc0, 0x67, 0xae, 0x5c, 0xd0, 0x5d, 0x4a, 0x5d, 0x0f,
+	0x0b, 0x8a, 0xbd, 0xf8, 0xa6, 0xc9, 0x89, 0x8f, 0x19, 0x47, 0x7e, 0x38, 0x4c, 0x7a, 0xd4, 0xc1,
+	0x89, 0x23, 0xc4, 0x09, 0x95, 0x49, 0x9b, 0xbf, 0x03, 0xb8, 0xd4, 0x61, 0xee, 0x67, 0x71, 0xe0,
+	0x6c, 0x52, 0xdf, 0x8f, 0x03, 0xc2, 0x07, 0xdb, 0x94, 0x7a, 0x8a, 0x0d, 0xab, 0xc8, 0xa7, 0x71,
+	0xc0, 0x55, 0xb0, 0x52, 0x5e, 0x3b, 0x77, 0x65, 0xd9, 0x90, 0x8c, 0x12, 0xfa, 0x86, 0xa4, 0x6f,
+	0x6c, 0x52, 0x12, 0xb4, 0xdf, 0x7d, 0xf4, 0x54, 0x2f, 0xfd, 0xf6, 0x4c, 0x5f, 0x73, 0x09, 0xef,
+	0xc7, 0x3d, 0xc3, 0xa6, 0xbe, 0xa4, 0x2f, 0x3f, 0xd6, 0x99, 0x73, 0xcb, 0xe4, 0x83, 0x10, 0xb3,
+	0x14, 0xc0, 0x2c, 0x19, 0x5a, 0xb9, 0x0a, 0x6b, 0x0e, 0x0e, 0x29, 0x23, 0x9c, 0x46, 0xea, 0xc2,
+	0x0a, 0x58, 0xab, 0xb5, 0xd5, 0x27, 0x0f, 0xd7, 0x97, 0x64, 0xaa, 0xeb, 0x8e, 0x13, 0x61, 0xc6,
+	0x76, 0x78, 0x44, 0x02, 0xd7, 0x1a, 0xb9, 0x6e, 0xd4, 0xef, 0xde, 0xd7, 0x4b, 0xff, 0xdc, 0xd7,
+	0x4b, 0xdf, 0x3f, 0x7f, 0x70, 0x79, 0x64, 0x6f, 0x36, 0xe0, 0xa5, 0xbc, 0x62, 0x2c, 0xcc, 0x42,
+	0x1a, 0x30, 0xdc, 0x3c, 0x00, 0xf0, 0xf5, 0x0e, 0x73, 0x27, 0x16, 0x77, 0x42, 0x1c, 0x38, 0x09,
+	0x13, 0x14, 0xf3, 0x3e, 0x8d, 0x08, 0x1f, 0xa8, 0xe0, 0x38, 0x26, 0x99, 0xab, 0x72, 0x09, 0xd6,
+	0x22, 0x6c, 0x93, 0x90, 0xe0, 0x80, 0x8b, 0x0a, 0xac, 0x91, 0x61, 0x4c, 0xc4, 0xf2, 0xa9, 0x89,
+	0xb8, 0xb1, 0x98, 0x8a, 0x90, 0x51, 0x6a, 0xea, 0xf0, 0xcd, 0xdc, 0x1a, 0x33, 0x15, 0x7e, 0x2a,
+	0xc3, 0x8b, 0x1d, 0xe6, 0xee, 0xc4, 0x3d, 0x9f, 0xf0, 0x76, 0xec, 0xb8, 0x98, 0x6f, 0x47, 0x34,
+	0xa4, 0x0c, 0x79, 0x2f, 0xad, 0xc3, 0xa7, 0xf0, 0x42, 0x56, 0x76, 0x17, 0x09, 0xaf, 0x63, 0x77,
+	0xf4, 0x7c, 0x06, 0x91, 0x76, 0xe5, 0x73, 0xa8, 0xf4, 0x52, 0x42, 0xdd, 0x10, 0x47, 0x5d, 0x1e,
+	0xa1, 0xc0, 0xee, 0x63, 0xb5, 0xbc, 0x02, 0x0a, 0xc5, 0xb3, 0xce, 0x0b, 0xd0, 0x36, 0x8e, 0x6e,
+	0x08, 0x88, 0xf2, 0x09, 0x84, 0x8c, 0xa3, 0x88, 0x77, 0x93, 0x81, 0x50, 0x2b, 0x69, 0x00, 0xcd,
+	0x10, 0xc3, 0x60, 0x0c, 0x87, 0xc1, 0xb8, 0x31, 0x9c, 0x96, 0x76, 0xe5, 0xde, 0x33, 0x1d, 0x58,
+	0xb5, 0x14, 0x93, 0x58, 0x15, 0x0d, 0x9e, 0x95, 0xe9, 0x99, 0x7a, 0x66, 0x05, 0xac, 0x55, 0xac,
+	0xec, 0xb7, 0x72, 0x0d, 0x56, 0x43, 0x1c, 0x11, 0xea, 0xa8, 0x55, 0xc9, 0xec, 0x68, 0xe0, 0x2d,
+	0x39, 0x65, 0xed, 0xca, 0xcf, 0x49, 0x5c, 0xe9, 0x3e, 0xb5, 0x55, 0xab, 0x50, 0x9f, 0xb1, 0x11,
+	0xd9, 0x66, 0x51, 0xb8, 0x98, 0xec, 0xa6, 0x87, 0x88, 0x2f, 0x3c, 0xf2, 0xa5, 0x06, 0xf3, 0x4a,
+	0xbd, 0x51, 0x4f, 0xb8, 0x4c, 0x47, 0x6a, 0x7e, 0x07, 0xeb, 0x93, 0x09, 0x87, 0x54, 0x26, 0x8e,
+	0x04, 0x70, 0x4a, 0xdd, 0xdc, 0xfc, 0x65, 0x21, 0x6d, 0xce, 0xcd, 0x08, 0x23, 0x8e, 0x37, 0x69,
+	0xc0, 0x49, 0x10, 0xd3, 0x98, 0x25, 0x33, 0xfd, 0xd2, 0xcd, 0x79, 0x75, 0x6a, 0x48, 0x8b, 0x70,
+	0xa3, 0xf1, 0xfd, 0x1a, 0xc2, 0x10, 0x47, 0x36, 0x0e, 0x38, 0x72, 0x45, 0x17, 0xd6, 0xda, 0xad,
+	0xa4, 0xb2, 0x3f, 0x9f, 0xea, 0x6f, 0x08, 0x30, 0x73, 0x6e, 0x19, 0x84, 0x9a, 0x3e, 0xe2, 0x7d,
+	0xe3, 0x2b, 0xec, 0x22, 0x7b, 0xb0, 0x85, 0xed, 0x27, 0x0f, 0xd7, 0xa1, 0x8c, 0xbd, 0x85, 0x6d,
+	0x6b, 0x2c, 0x88, 0xf2, 0x21, 0xac, 0xe2, 0xfd, 0x90, 0x44, 0x83, 0x17, 0xee, 0x49, 0xe9, 0x3f,
+	0xa3, 0x77, 0xf2, 0x74, 0xca, 0x7a, 0xe7, 0x57, 0x20, 0xb4, 0x44, 0x81, 0x8d, 0xbd, 0x13, 0xd2,
+	0xf2, 0x64, 0x06, 0x7d, 0xaa, 0x9a, 0xbf, 0x17, 0x44, 0x39, 0x39, 0x54, 0xb3, 0xfe, 0xfb, 0x12,
+	0xbe, 0x6a, 0xa7, 0xeb, 0xd8, 0x11, 0x63, 0x0d, 0x8e, 0x95, 0xf0, 0x6c, 0xb2, 0x5b, 0xa9, 0x8c,
+	0xaf, 0x0c, 0xa1, 0xe9, 0x74, 0xbf, 0x0d, 0x5f, 0xcb, 0x42, 0xf5, 0x31, 0x71, 0xfb, 0xa2, 0x2f,
+	0x2a, 0xd6, 0xe2, 0xd0, 0xfc, 0x45, 0x6a, 0xcd, 0x2f, 0xb7, 0x3c, 0xf7, 0xb9, 0xf6, 0x03, 0x80,
+	0xea, 0x1e, 0xe1, 0x7d, 0x27, 0x42, 0x7b, 0x41, 0x17, 0x79, 0x1e, 0xb5, 0x11, 0xc7, 0x4e, 0xf7,
+	0x66, 0x1c, 0x38, 0xb2, 0x13, 0x4e, 0x74, 0x9a, 0xea, 0x59, 0xb2, 0xeb, 0xc3, 0x5c, 0x89, 0x94,
+	0xcd, 0xdb, 0x70, 0xb9, 0xc3, 0xdc, 0x6f, 0xe4, 0xe2, 0x91, 0x96, 0x38, 0xe5, 0x83, 0xe5, 0x2e,
+	0x80, 0xab, 0x33, 0x93, 0xff, 0xaf, 0x87, 0xcc, 0x95, 0x7f, 0xab, 0xb0, 0xdc, 0x61, 0xae, 0xb2,
+	0x07, 0x2f, 0x4c, 0xbf, 0x7c, 0xde, 0x31, 0xf2, 0x9f, 0x75, 0x46, 0xde, 0xd3, 0x42, 0x7b, 0x7f,
+	0x1e, 0xef, 0xac, 0xca, 0xdb, 0x50, 0xc9, 0x79, 0x84, 0xac, 0x17, 0xc4, 0x9a, 0x76, 0xd7, 0x3e,
+	0x98, 0xcb, 0x3d, 0xcb, 0x7d, 0x07, 0xc0, 0xa5, 0xdc, 0xbb, 0xdf, 0x2c, 0x88, 0x97, 0x07, 0xd0,
+	0xae, 0xcd, 0x09, 0xc8, 0x28, 0x60, 0x78, 0x6e, 0xfc, 0x46, 0x7b, 0xab, 0xa8, 0x90, 0x91, 0x9f,
+	0x66, 0xbc, 0x98, 0xdf, 0x44, 0xa5, 0xb9, 0x17, 0x49, 0x51, 0xa5, 0x79, 0x80, 0xc2, 0x4a, 0x8b,
+	0x8e, 0x60, 0xe5, 0x47, 0x00, 0xeb, 0x33, 0xc6, 0xad, 0x55, 0x10, 0x33, 0x1f, 0xa2, 0x7d, 0x34,
+	0x37, 0x64, 0x52, 0x8b, 0xbc, 0x8b, 0xa0, 0x50, 0x8b, 0x1c, 0x40, 0xb1, 0x16, 0x05, 0xe7, 0xb7,
+	0x76, 0xe6, 0xce, 0xf3, 0x07, 0x97, 0x41, 0xfb, 0xe3, 0x47, 0x07, 0x0d, 0xf0, 0xf8, 0xa0, 0x01,
+	0xfe, 0x3a, 0x68, 0x80, 0x7b, 0x87, 0x8d, 0xd2, 0xe3, 0xc3, 0x46, 0xe9, 0x8f, 0xc3, 0x46, 0xe9,
+	0xdb, 0xd5, 0x89, 0x3b, 0x75, 0x7f, 0xf2, 0x8f, 0x57, 0x3a, 0xc7, 0xbd, 0x6a, 0x6a, 0x7b, 0xef,
+	0xbf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x3f, 0xbb, 0x27, 0x2e, 0x9c, 0x0d, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -526,6 +876,12 @@ type MsgClient interface {
 	SubmitBudgetProposal(ctx context.Context, in *MsgSubmitBudgetProposal, opts ...grpc.CallOption) (*MsgSubmitBudgetProposalResponse, error)
 	// ClaimBudget defines a method to claim the distributed budget.
 	ClaimBudget(ctx context.Context, in *MsgClaimBudget, opts ...grpc.CallOption) (*MsgClaimBudgetResponse, error)
+	// CreateContinuousFund defines a method to add funds continuously.
+	CreateContinuousFund(ctx context.Context, in *MsgCreateContinuousFund, opts ...grpc.CallOption) (*MsgCreateContinuousFundResponse, error)
+	// WithdrawContinuousFund defines a method to withdraw continuous fund allocated.
+	WithdrawContinuousFund(ctx context.Context, in *MsgWithdrawContinuousFund, opts ...grpc.CallOption) (*MsgWithdrawContinuousFundResponse, error)
+	// CancelContinuousFund defines a method for cancelling continuous fund.
+	CancelContinuousFund(ctx context.Context, in *MsgCancelContinuousFund, opts ...grpc.CallOption) (*MsgCancelContinuousFundResponse, error)
 }
 
 type msgClient struct {
@@ -572,6 +928,33 @@ func (c *msgClient) ClaimBudget(ctx context.Context, in *MsgClaimBudget, opts ..
 	return out, nil
 }
 
+func (c *msgClient) CreateContinuousFund(ctx context.Context, in *MsgCreateContinuousFund, opts ...grpc.CallOption) (*MsgCreateContinuousFundResponse, error) {
+	out := new(MsgCreateContinuousFundResponse)
+	err := c.cc.Invoke(ctx, "/cosmos.protocolpool.v1.Msg/CreateContinuousFund", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) WithdrawContinuousFund(ctx context.Context, in *MsgWithdrawContinuousFund, opts ...grpc.CallOption) (*MsgWithdrawContinuousFundResponse, error) {
+	out := new(MsgWithdrawContinuousFundResponse)
+	err := c.cc.Invoke(ctx, "/cosmos.protocolpool.v1.Msg/WithdrawContinuousFund", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) CancelContinuousFund(ctx context.Context, in *MsgCancelContinuousFund, opts ...grpc.CallOption) (*MsgCancelContinuousFundResponse, error) {
+	out := new(MsgCancelContinuousFundResponse)
+	err := c.cc.Invoke(ctx, "/cosmos.protocolpool.v1.Msg/CancelContinuousFund", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MsgServer is the server API for Msg service.
 type MsgServer interface {
 	// FundCommunityPool defines a method to allow an account to directly
@@ -586,6 +969,12 @@ type MsgServer interface {
 	SubmitBudgetProposal(context.Context, *MsgSubmitBudgetProposal) (*MsgSubmitBudgetProposalResponse, error)
 	// ClaimBudget defines a method to claim the distributed budget.
 	ClaimBudget(context.Context, *MsgClaimBudget) (*MsgClaimBudgetResponse, error)
+	// CreateContinuousFund defines a method to add funds continuously.
+	CreateContinuousFund(context.Context, *MsgCreateContinuousFund) (*MsgCreateContinuousFundResponse, error)
+	// WithdrawContinuousFund defines a method to withdraw continuous fund allocated.
+	WithdrawContinuousFund(context.Context, *MsgWithdrawContinuousFund) (*MsgWithdrawContinuousFundResponse, error)
+	// CancelContinuousFund defines a method for cancelling continuous fund.
+	CancelContinuousFund(context.Context, *MsgCancelContinuousFund) (*MsgCancelContinuousFundResponse, error)
 }
 
 // UnimplementedMsgServer can be embedded to have forward compatible implementations.
@@ -603,6 +992,15 @@ func (*UnimplementedMsgServer) SubmitBudgetProposal(ctx context.Context, req *Ms
 }
 func (*UnimplementedMsgServer) ClaimBudget(ctx context.Context, req *MsgClaimBudget) (*MsgClaimBudgetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClaimBudget not implemented")
+}
+func (*UnimplementedMsgServer) CreateContinuousFund(ctx context.Context, req *MsgCreateContinuousFund) (*MsgCreateContinuousFundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateContinuousFund not implemented")
+}
+func (*UnimplementedMsgServer) WithdrawContinuousFund(ctx context.Context, req *MsgWithdrawContinuousFund) (*MsgWithdrawContinuousFundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WithdrawContinuousFund not implemented")
+}
+func (*UnimplementedMsgServer) CancelContinuousFund(ctx context.Context, req *MsgCancelContinuousFund) (*MsgCancelContinuousFundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelContinuousFund not implemented")
 }
 
 func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
@@ -681,6 +1079,61 @@ func _Msg_ClaimBudget_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_CreateContinuousFund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgCreateContinuousFund)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).CreateContinuousFund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cosmos.protocolpool.v1.Msg/CreateContinuousFund",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).CreateContinuousFund(ctx, req.(*MsgCreateContinuousFund))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_WithdrawContinuousFund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgWithdrawContinuousFund)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).WithdrawContinuousFund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cosmos.protocolpool.v1.Msg/WithdrawContinuousFund",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).WithdrawContinuousFund(ctx, req.(*MsgWithdrawContinuousFund))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_CancelContinuousFund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgCancelContinuousFund)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).CancelContinuousFund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cosmos.protocolpool.v1.Msg/CancelContinuousFund",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).CancelContinuousFund(ctx, req.(*MsgCancelContinuousFund))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var Msg_serviceDesc = _Msg_serviceDesc
 var _Msg_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "cosmos.protocolpool.v1.Msg",
 	HandlerType: (*MsgServer)(nil),
@@ -700,6 +1153,18 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClaimBudget",
 			Handler:    _Msg_ClaimBudget_Handler,
+		},
+		{
+			MethodName: "CreateContinuousFund",
+			Handler:    _Msg_CreateContinuousFund_Handler,
+		},
+		{
+			MethodName: "WithdrawContinuousFund",
+			Handler:    _Msg_WithdrawContinuousFund_Handler,
+		},
+		{
+			MethodName: "CancelContinuousFund",
+			Handler:    _Msg_CancelContinuousFund_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -892,9 +1357,9 @@ func (m *MsgSubmitBudgetProposal) MarshalToSizedBuffer(dAtA []byte) (int, error)
 		i--
 		dAtA[i] = 0x22
 	}
-	if m.TotalBudget != nil {
+	if m.BudgetPerTranche != nil {
 		{
-			size, err := m.TotalBudget.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.BudgetPerTranche.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -1007,6 +1472,239 @@ func (m *MsgClaimBudgetResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) 
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgCreateContinuousFund) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgCreateContinuousFund) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgCreateContinuousFund) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Expiry != nil {
+		n5, err5 := github_com_cosmos_gogoproto_types.StdTimeMarshalTo(*m.Expiry, dAtA[i-github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.Expiry):])
+		if err5 != nil {
+			return 0, err5
+		}
+		i -= n5
+		i = encodeVarintTx(dAtA, i, uint64(n5))
+		i--
+		dAtA[i] = 0x22
+	}
+	{
+		size := m.Percentage.Size()
+		i -= size
+		if _, err := m.Percentage.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintTx(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x1a
+	if len(m.Recipient) > 0 {
+		i -= len(m.Recipient)
+		copy(dAtA[i:], m.Recipient)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Recipient)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgCreateContinuousFundResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgCreateContinuousFundResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgCreateContinuousFundResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgCancelContinuousFund) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgCancelContinuousFund) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgCancelContinuousFund) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.RecipientAddress) > 0 {
+		i -= len(m.RecipientAddress)
+		copy(dAtA[i:], m.RecipientAddress)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.RecipientAddress)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Authority) > 0 {
+		i -= len(m.Authority)
+		copy(dAtA[i:], m.Authority)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Authority)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgCancelContinuousFundResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgCancelContinuousFundResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgCancelContinuousFundResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.WithdrawnAllocatedFund.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintTx(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x22
+	if len(m.RecipientAddress) > 0 {
+		i -= len(m.RecipientAddress)
+		copy(dAtA[i:], m.RecipientAddress)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.RecipientAddress)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.CanceledHeight != 0 {
+		i = encodeVarintTx(dAtA, i, uint64(m.CanceledHeight))
+		i--
+		dAtA[i] = 0x10
+	}
+	n7, err7 := github_com_cosmos_gogoproto_types.StdTimeMarshalTo(m.CanceledTime, dAtA[i-github_com_cosmos_gogoproto_types.SizeOfStdTime(m.CanceledTime):])
+	if err7 != nil {
+		return 0, err7
+	}
+	i -= n7
+	i = encodeVarintTx(dAtA, i, uint64(n7))
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgWithdrawContinuousFund) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgWithdrawContinuousFund) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgWithdrawContinuousFund) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.RecipientAddress) > 0 {
+		i -= len(m.RecipientAddress)
+		copy(dAtA[i:], m.RecipientAddress)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.RecipientAddress)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgWithdrawContinuousFundResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgWithdrawContinuousFundResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgWithdrawContinuousFundResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.Amount.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintTx(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTx(v)
 	base := offset
@@ -1092,8 +1790,8 @@ func (m *MsgSubmitBudgetProposal) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTx(uint64(l))
 	}
-	if m.TotalBudget != nil {
-		l = m.TotalBudget.Size()
+	if m.BudgetPerTranche != nil {
+		l = m.BudgetPerTranche.Size()
 		n += 1 + l + sovTx(uint64(l))
 	}
 	if m.StartTime != nil {
@@ -1133,6 +1831,99 @@ func (m *MsgClaimBudget) Size() (n int) {
 }
 
 func (m *MsgClaimBudgetResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.Amount.Size()
+	n += 1 + l + sovTx(uint64(l))
+	return n
+}
+
+func (m *MsgCreateContinuousFund) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Recipient)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = m.Percentage.Size()
+	n += 1 + l + sovTx(uint64(l))
+	if m.Expiry != nil {
+		l = github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.Expiry)
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgCreateContinuousFundResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgCancelContinuousFund) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Authority)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.RecipientAddress)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgCancelContinuousFundResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = github_com_cosmos_gogoproto_types.SizeOfStdTime(m.CanceledTime)
+	n += 1 + l + sovTx(uint64(l))
+	if m.CanceledHeight != 0 {
+		n += 1 + sovTx(uint64(m.CanceledHeight))
+	}
+	l = len(m.RecipientAddress)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = m.WithdrawnAllocatedFund.Size()
+	n += 1 + l + sovTx(uint64(l))
+	return n
+}
+
+func (m *MsgWithdrawContinuousFund) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.RecipientAddress)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgWithdrawContinuousFundResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1608,7 +2399,7 @@ func (m *MsgSubmitBudgetProposal) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TotalBudget", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field BudgetPerTranche", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1635,10 +2426,10 @@ func (m *MsgSubmitBudgetProposal) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.TotalBudget == nil {
-				m.TotalBudget = &types.Coin{}
+			if m.BudgetPerTranche == nil {
+				m.BudgetPerTranche = &types.Coin{}
 			}
-			if err := m.TotalBudget.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.BudgetPerTranche.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1913,6 +2704,686 @@ func (m *MsgClaimBudgetResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgClaimBudgetResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Amount", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Amount.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgCreateContinuousFund) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgCreateContinuousFund: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgCreateContinuousFund: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Recipient", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Recipient = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Percentage", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Percentage.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Expiry", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Expiry == nil {
+				m.Expiry = new(time.Time)
+			}
+			if err := github_com_cosmos_gogoproto_types.StdTimeUnmarshal(m.Expiry, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgCreateContinuousFundResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgCreateContinuousFundResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgCreateContinuousFundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgCancelContinuousFund) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgCancelContinuousFund: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgCancelContinuousFund: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Authority", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Authority = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RecipientAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RecipientAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgCancelContinuousFundResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgCancelContinuousFundResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgCancelContinuousFundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CanceledTime", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := github_com_cosmos_gogoproto_types.StdTimeUnmarshal(&m.CanceledTime, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CanceledHeight", wireType)
+			}
+			m.CanceledHeight = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CanceledHeight |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RecipientAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RecipientAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field WithdrawnAllocatedFund", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.WithdrawnAllocatedFund.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgWithdrawContinuousFund) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgWithdrawContinuousFund: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgWithdrawContinuousFund: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RecipientAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.RecipientAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgWithdrawContinuousFundResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgWithdrawContinuousFundResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgWithdrawContinuousFundResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

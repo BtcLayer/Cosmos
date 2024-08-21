@@ -1,34 +1,29 @@
 package types
 
 import (
+	corelegacy "cosmossdk.io/core/legacy"
+	"cosmossdk.io/core/registry"
 	authtypes "cosmossdk.io/x/auth/types"
 	"cosmossdk.io/x/auth/vesting/exported"
 
-	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/codec/legacy"
-	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/msgservice"
 )
 
 // RegisterLegacyAminoCodec registers the vesting interfaces and concrete types on the
 // provided LegacyAmino codec. These types are used for Amino JSON serialization
-func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+func RegisterLegacyAminoCodec(cdc corelegacy.Amino) {
 	cdc.RegisterInterface((*exported.VestingAccount)(nil), nil)
-	cdc.RegisterConcrete(&BaseVestingAccount{}, "cosmos-sdk/BaseVestingAccount", nil)
-	cdc.RegisterConcrete(&ContinuousVestingAccount{}, "cosmos-sdk/ContinuousVestingAccount", nil)
-	cdc.RegisterConcrete(&DelayedVestingAccount{}, "cosmos-sdk/DelayedVestingAccount", nil)
-	cdc.RegisterConcrete(&PeriodicVestingAccount{}, "cosmos-sdk/PeriodicVestingAccount", nil)
-	cdc.RegisterConcrete(&PermanentLockedAccount{}, "cosmos-sdk/PermanentLockedAccount", nil)
-	legacy.RegisterAminoMsg(cdc, &MsgCreateVestingAccount{}, "cosmos-sdk/MsgCreateVestingAccount")
-	legacy.RegisterAminoMsg(cdc, &MsgCreatePermanentLockedAccount{}, "cosmos-sdk/MsgCreatePermLockedAccount")
-	legacy.RegisterAminoMsg(cdc, &MsgCreatePeriodicVestingAccount{}, "cosmos-sdk/MsgCreatePeriodVestAccount")
+	cdc.RegisterConcrete(&BaseVestingAccount{}, "cosmos-sdk/BaseVestingAccount")
+	cdc.RegisterConcrete(&ContinuousVestingAccount{}, "cosmos-sdk/ContinuousVestingAccount")
+	cdc.RegisterConcrete(&DelayedVestingAccount{}, "cosmos-sdk/DelayedVestingAccount")
+	cdc.RegisterConcrete(&PeriodicVestingAccount{}, "cosmos-sdk/PeriodicVestingAccount")
+	cdc.RegisterConcrete(&PermanentLockedAccount{}, "cosmos-sdk/PermanentLockedAccount")
 }
 
-// RegisterInterface associates protoName with AccountI and VestingAccount
+// RegisterInterfaces associates protoName with AccountI and VestingAccount
 // Interfaces and creates a registry of it's concrete implementations
-func RegisterInterfaces(registry types.InterfaceRegistry) {
-	registry.RegisterInterface(
+func RegisterInterfaces(registrar registry.InterfaceRegistrar) {
+	registrar.RegisterInterface(
 		"cosmos.vesting.v1beta1.VestingAccount",
 		(*exported.VestingAccount)(nil),
 		&ContinuousVestingAccount{},
@@ -37,7 +32,7 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&PermanentLockedAccount{},
 	)
 
-	registry.RegisterImplementations(
+	registrar.RegisterImplementations(
 		(*sdk.AccountI)(nil),
 		&BaseVestingAccount{},
 		&DelayedVestingAccount{},
@@ -46,7 +41,7 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&PermanentLockedAccount{},
 	)
 
-	registry.RegisterImplementations(
+	registrar.RegisterImplementations(
 		(*authtypes.GenesisAccount)(nil),
 		&BaseVestingAccount{},
 		&DelayedVestingAccount{},
@@ -54,12 +49,4 @@ func RegisterInterfaces(registry types.InterfaceRegistry) {
 		&PeriodicVestingAccount{},
 		&PermanentLockedAccount{},
 	)
-
-	registry.RegisterImplementations(
-		(*sdk.Msg)(nil),
-		&MsgCreateVestingAccount{},
-		&MsgCreatePermanentLockedAccount{},
-	)
-
-	msgservice.RegisterMsgServiceDesc(registry, &_Msg_serviceDesc)
 }

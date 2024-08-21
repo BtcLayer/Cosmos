@@ -2,10 +2,14 @@ package feegrant
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	gogoprotoany "github.com/cosmos/gogoproto/types/any"
 
+	"cosmossdk.io/core/appmodule"
+	corecontext "cosmossdk.io/core/context"
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -13,24 +17,24 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-// TODO: Revisit this once we have propoer gas fee framework.
+// TODO: Revisit this once we have proper gas fee framework.
 // Tracking issues https://github.com/cosmos/cosmos-sdk/issues/9054, https://github.com/cosmos/cosmos-sdk/discussions/9072
 const (
 	gasCostPerIteration = uint64(10)
 )
 
 var (
-	_ FeeAllowanceI                 = (*AllowedMsgAllowance)(nil)
-	_ types.UnpackInterfacesMessage = (*AllowedMsgAllowance)(nil)
+	_ FeeAllowanceI                        = (*AllowedMsgAllowance)(nil)
+	_ gogoprotoany.UnpackInterfacesMessage = (*AllowedMsgAllowance)(nil)
 )
 
 // UnpackInterfaces implements UnpackInterfacesMessage.UnpackInterfaces
-func (a *AllowedMsgAllowance) UnpackInterfaces(unpacker types.AnyUnpacker) error {
+func (a *AllowedMsgAllowance) UnpackInterfaces(unpacker gogoprotoany.AnyUnpacker) error {
 	var allowance FeeAllowanceI
 	return unpacker.UnpackAny(a.Allowance, &allowance)
 }
 
-// NewAllowedMsgFeeAllowance creates new filtered fee allowance.
+// NewAllowedMsgAllowance creates new filtered fee allowance.
 func NewAllowedMsgAllowance(allowance FeeAllowanceI, allowedMsgs []string) (*AllowedMsgAllowance, error) {
 	msg, ok := allowance.(proto.Message)
 	if !ok {
@@ -70,7 +74,11 @@ func (a *AllowedMsgAllowance) SetAllowance(allowance FeeAllowanceI) error {
 
 // Accept method checks for the filtered messages has valid expiry
 func (a *AllowedMsgAllowance) Accept(ctx context.Context, fee sdk.Coins, msgs []sdk.Msg) (bool, error) {
-	if !a.allMsgTypesAllowed(sdk.UnwrapSDKContext(ctx), msgs) {
+	allowed, err := a.allMsgTypesAllowed(ctx, msgs)
+	if err != nil {
+		return false, err
+	}
+	if !allowed {
 		return false, errorsmod.Wrap(ErrMessageNotAllowed, "message does not exist in allowed messages")
 	}
 
@@ -88,27 +96,43 @@ func (a *AllowedMsgAllowance) Accept(ctx context.Context, fee sdk.Coins, msgs []
 	return remove, err
 }
 
-func (a *AllowedMsgAllowance) allowedMsgsToMap(ctx sdk.Context) map[string]bool {
+func (a *AllowedMsgAllowance) allowedMsgsToMap(ctx context.Context) (map[string]bool, error) {
 	msgsMap := make(map[string]bool, len(a.AllowedMessages))
+	environment, ok := ctx.Value(corecontext.EnvironmentContextKey).(appmodule.Environment)
+	if !ok {
+		return nil, errors.New("environment not set")
+	}
+	gasMeter := environment.GasService.GasMeter(ctx)
 	for _, msg := range a.AllowedMessages {
-		ctx.GasMeter().ConsumeGas(gasCostPerIteration, "check msg")
+		if err := gasMeter.Consume(gasCostPerIteration, "check msg"); err != nil {
+			return nil, err
+		}
 		msgsMap[msg] = true
 	}
 
-	return msgsMap
+	return msgsMap, nil
 }
 
-func (a *AllowedMsgAllowance) allMsgTypesAllowed(ctx sdk.Context, msgs []sdk.Msg) bool {
-	msgsMap := a.allowedMsgsToMap(ctx)
-
+func (a *AllowedMsgAllowance) allMsgTypesAllowed(ctx context.Context, msgs []sdk.Msg) (bool, error) {
+	msgsMap, err := a.allowedMsgsToMap(ctx)
+	if err != nil {
+		return false, err
+	}
+	environment, ok := ctx.Value(corecontext.EnvironmentContextKey).(appmodule.Environment)
+	if !ok {
+		return false, errors.New("environment not set")
+	}
+	gasMeter := environment.GasService.GasMeter(ctx)
 	for _, msg := range msgs {
-		ctx.GasMeter().ConsumeGas(gasCostPerIteration, "check msg")
+		if err := gasMeter.Consume(gasCostPerIteration, "check msg"); err != nil {
+			return false, err
+		}
 		if !msgsMap[sdk.MsgTypeURL(msg)] {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 // ValidateBasic implements FeeAllowance and enforces basic sanity checks
@@ -135,4 +159,13 @@ func (a *AllowedMsgAllowance) ExpiresAt() (*time.Time, error) {
 		return nil, err
 	}
 	return allowance.ExpiresAt()
+}
+
+// UpdatePeriodReset update "PeriodReset" of the AllowedMsgAllowance.
+func (a *AllowedMsgAllowance) UpdatePeriodReset(validTime time.Time) error {
+	allowance, err := a.GetAllowance()
+	if err != nil {
+		return err
+	}
+	return allowance.UpdatePeriodReset(validTime)
 }

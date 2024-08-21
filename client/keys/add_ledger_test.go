@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/testutil"
@@ -32,19 +33,14 @@ func Test_runAddCmdLedgerWithCustomCoinType(t *testing.T) {
 	bech32PrefixConsAddr := "terravalcons"
 	bech32PrefixConsPub := "terravalconspub"
 
-	config.SetPurpose(44)
-	config.SetCoinType(330)
 	config.SetBech32PrefixForAccount(bech32PrefixAccAddr, bech32PrefixAccPub)
 	config.SetBech32PrefixForValidator(bech32PrefixValAddr, bech32PrefixValPub)
 	config.SetBech32PrefixForConsensusNode(bech32PrefixConsAddr, bech32PrefixConsPub)
 
-	cmd := AddKeyCommand()
-	cmd.Flags().AddFlagSet(Commands().PersistentFlags())
-
 	// Prepare a keybase
 	kbHome := t.TempDir()
 
-	cdc := moduletestutil.MakeTestEncodingConfig().Codec
+	cdc := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}).Codec
 	clientCtx := client.Context{}.
 		WithKeyringDir(kbHome).
 		WithCodec(cdc).
@@ -54,6 +50,8 @@ func Test_runAddCmdLedgerWithCustomCoinType(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), client.ClientContextKey, &clientCtx)
 
+	cmd := AddKeyCommand()
+	cmd.Flags().AddFlagSet(Commands().PersistentFlags())
 	cmd.SetArgs([]string{
 		"keyname1",
 		fmt.Sprintf("--%s=true", flags.FlagUseLedger),
@@ -89,8 +87,6 @@ func Test_runAddCmdLedgerWithCustomCoinType(t *testing.T) {
 		"PubKeySecp256k1{03028F0D5A9FD41600191CDEFDEA05E77A68DFBCE286241C0190805B9346667D07}",
 		pub.String())
 
-	config.SetPurpose(44)
-	config.SetCoinType(118)
 	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
 	config.SetBech32PrefixForValidator(sdk.Bech32PrefixValAddr, sdk.Bech32PrefixValPub)
 	config.SetBech32PrefixForConsensusNode(sdk.Bech32PrefixConsAddr, sdk.Bech32PrefixConsPub)
@@ -102,7 +98,7 @@ func Test_runAddCmdLedger(t *testing.T) {
 
 	mockIn := testutil.ApplyMockIODiscardOutErr(cmd)
 	kbHome := t.TempDir()
-	cdc := moduletestutil.MakeTestEncodingConfig().Codec
+	cdc := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}).Codec
 
 	clientCtx := client.Context{}.
 		WithKeyringDir(kbHome).
@@ -149,7 +145,7 @@ func Test_runAddCmdLedger(t *testing.T) {
 }
 
 func Test_runAddCmdLedgerDryRun(t *testing.T) {
-	cdc := moduletestutil.MakeTestEncodingConfig().Codec
+	cdc := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}).Codec
 	testData := []struct {
 		name  string
 		args  []string

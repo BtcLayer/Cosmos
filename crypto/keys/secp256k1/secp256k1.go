@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
 
 	"github.com/cometbft/cometbft/crypto"
 	secp256k1dcrd "github.com/decred/dcrd/dcrec/secp256k1/v4"
+	"gitlab.com/yawning/secp256k1-voi/secec"
 	"golang.org/x/crypto/ripemd160" //nolint: staticcheck // keep around for backwards compatibility
 
 	errorsmod "cosmossdk.io/errors"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/types/errors"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 )
 
 var (
@@ -39,10 +41,12 @@ func (privKey *PrivKey) Bytes() []byte {
 // PubKey performs the point-scalar multiplication from the privKey on the
 // generator point to get the pubkey.
 func (privKey *PrivKey) PubKey() cryptotypes.PubKey {
-	pubkeyObject := secp256k1dcrd.PrivKeyFromBytes(privKey.Key).PubKey()
+	privateKeyObject, err := secec.NewPrivateKey(privKey.Key)
+	if err != nil {
+		panic(err)
+	}
 
-	pk := pubkeyObject.SerializeCompressed()
-	return &PubKey{Key: pk}
+	return &PubKey{Key: privateKeyObject.PublicKey().CompressedBytes()}
 }
 
 // Equals - you probably don't need to use this.
@@ -63,7 +67,7 @@ func (privKey PrivKey) MarshalAmino() ([]byte, error) {
 // UnmarshalAmino overrides Amino binary marshaling.
 func (privKey *PrivKey) UnmarshalAmino(bz []byte) error {
 	if len(bz) != PrivKeySize {
-		return fmt.Errorf("invalid privkey size")
+		return errors.New("invalid privkey size")
 	}
 	privKey.Key = bz
 
@@ -85,11 +89,21 @@ func (privKey *PrivKey) UnmarshalAminoJSON(bz []byte) error {
 // GenPrivKey generates a new ECDSA private key on curve secp256k1 private key.
 // It uses OS randomness to generate the private key.
 func GenPrivKey() *PrivKey {
-	return &PrivKey{Key: genPrivKey(crypto.CReader())}
+	return &PrivKey{Key: genPrivKey()}
 }
 
-// genPrivKey generates a new secp256k1 private key using the provided reader.
-func genPrivKey(rand io.Reader) []byte {
+// genPrivKey generates a new secp256k1 private key.
+func genPrivKey() []byte {
+	privateKeyObject, err := secec.GenerateKey()
+	if err != nil {
+		panic(err)
+	}
+
+	return privateKeyObject.Bytes()
+}
+
+// genPrivKeyLegacy generates a new secp256k1 private key using the provided reader.
+func genPrivKeyLegacy(rand io.Reader) []byte {
 	var privKeyBytes [PrivKeySize]byte
 	d := new(big.Int)
 	for {
@@ -189,7 +203,7 @@ func (pubKey PubKey) MarshalAmino() ([]byte, error) {
 // UnmarshalAmino overrides Amino binary marshaling.
 func (pubKey *PubKey) UnmarshalAmino(bz []byte) error {
 	if len(bz) != PubKeySize {
-		return errorsmod.Wrap(errors.ErrInvalidPubKey, "invalid pubkey size")
+		return errorsmod.Wrap(sdkerrors.ErrInvalidPubKey, "invalid pubkey size")
 	}
 	pubKey.Key = bz
 

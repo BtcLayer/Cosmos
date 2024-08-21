@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -64,7 +65,7 @@ When using '--dry-run' a key name cannot be used, only a bech32 address.`,
 			}
 
 			if coins.IsZero() {
-				return fmt.Errorf("must send positive amount")
+				return errors.New("must send positive amount")
 			}
 
 			split, err := cmd.Flags().GetBool(FlagSplit)
@@ -81,12 +82,12 @@ When using '--dry-run' a key name cannot be used, only a bech32 address.`,
 
 			var output []types.Output
 			for _, arg := range args[1 : len(args)-1] {
-				toAddr, err := clientCtx.AddressCodec.StringToBytes(arg)
+				_, err = clientCtx.AddressCodec.StringToBytes(arg)
 				if err != nil {
 					return err
 				}
 
-				output = append(output, types.NewOutput(toAddr, sendCoins))
+				output = append(output, types.NewOutput(arg, sendCoins))
 			}
 
 			// amount to be send from the from address
@@ -99,7 +100,12 @@ When using '--dry-run' a key name cannot be used, only a bech32 address.`,
 				amount = coins.MulInt(totalAddrs)
 			}
 
-			msg := types.NewMsgMultiSend(types.NewInput(clientCtx.FromAddress, amount), output)
+			fromAddr, err := clientCtx.AddressCodec.BytesToString(clientCtx.FromAddress)
+			if err != nil {
+				return err
+			}
+
+			msg := types.NewMsgMultiSend(types.NewInput(fromAddr, amount), output)
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 		},

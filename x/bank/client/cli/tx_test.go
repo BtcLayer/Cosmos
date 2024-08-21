@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
 	"github.com/cosmos/cosmos-sdk/testutil"
@@ -37,7 +38,7 @@ func TestCLITestSuite(t *testing.T) {
 }
 
 func (s *CLITestSuite) SetupSuite() {
-	s.encCfg = testutilmod.MakeTestEncodingConfig(bank.AppModuleBasic{})
+	s.encCfg = testutilmod.MakeTestEncodingConfig(codectestutil.CodecOptions{}, bank.AppModule{})
 	s.kr = keyring.NewInMemory(s.encCfg.Codec)
 	s.baseCtx = client.Context{}.
 		WithKeyring(s.kr).
@@ -53,6 +54,12 @@ func (s *CLITestSuite) SetupSuite() {
 
 func (s *CLITestSuite) TestMultiSendTxCmd() {
 	accounts := testutil.CreateKeyringAccounts(s.T(), s.kr, 3)
+	accountStr := make([]string, len(accounts))
+	for i, acc := range accounts {
+		addrStr, err := s.baseCtx.AddressCodec.BytesToString(acc.Address)
+		s.Require().NoError(err)
+		accountStr[i] = addrStr
+	}
 
 	cmd := cli.NewMultiSendTxCmd()
 	cmd.SetOutput(io.Discard)
@@ -79,10 +86,10 @@ func (s *CLITestSuite) TestMultiSendTxCmd() {
 			func() client.Context {
 				return s.baseCtx
 			},
-			accounts[0].Address.String(),
+			accountStr[0],
 			[]string{
-				accounts[1].Address.String(),
-				accounts[2].Address.String(),
+				accountStr[1],
+				accountStr[2],
 			},
 			sdk.NewCoins(
 				sdk.NewCoin("stake", sdkmath.NewInt(10)),
@@ -98,8 +105,8 @@ func (s *CLITestSuite) TestMultiSendTxCmd() {
 			},
 			"foo",
 			[]string{
-				accounts[1].Address.String(),
-				accounts[2].Address.String(),
+				accountStr[1],
+				accountStr[2],
 			},
 			sdk.NewCoins(
 				sdk.NewCoin("stake", sdkmath.NewInt(10)),
@@ -113,9 +120,9 @@ func (s *CLITestSuite) TestMultiSendTxCmd() {
 			func() client.Context {
 				return s.baseCtx
 			},
-			accounts[0].Address.String(),
+			accountStr[0],
 			[]string{
-				accounts[1].Address.String(),
+				accountStr[1],
 				"bar",
 			},
 			sdk.NewCoins(
@@ -130,10 +137,10 @@ func (s *CLITestSuite) TestMultiSendTxCmd() {
 			func() client.Context {
 				return s.baseCtx
 			},
-			accounts[0].Address.String(),
+			accountStr[0],
 			[]string{
-				accounts[1].Address.String(),
-				accounts[2].Address.String(),
+				accountStr[1],
+				accountStr[2],
 			},
 			nil,
 			extraArgs,

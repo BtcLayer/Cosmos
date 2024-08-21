@@ -13,14 +13,15 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/testutil/integration"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
+	"github.com/cosmos/cosmos-sdk/testutil/x/counter"
+	counterkeeper "github.com/cosmos/cosmos-sdk/testutil/x/counter/keeper"
+	countertypes "github.com/cosmos/cosmos-sdk/testutil/x/counter/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/cosmos/cosmos-sdk/x/counter"
-	counterkeeper "github.com/cosmos/cosmos-sdk/x/counter/keeper"
-	countertypes "github.com/cosmos/cosmos-sdk/x/counter/types"
 )
 
 type IntegrationTestSuite struct {
@@ -39,7 +40,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	keys := storetypes.NewKVStoreKeys(countertypes.StoreKey)
 	cms := integration.CreateMultiStore(keys, logger)
 	s.ctx = sdk.NewContext(cms, true, logger)
-	cfg := moduletestutil.MakeTestEncodingConfig(counter.AppModuleBasic{})
+	cfg := moduletestutil.MakeTestEncodingConfig(testutil.CodecOptions{}, counter.AppModule{})
 	s.cdc = cfg.Codec
 
 	queryHelper := baseapp.NewQueryServerTestHelper(s.ctx, cfg.InterfaceRegistry)
@@ -47,7 +48,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.testClient = testdata.NewQueryClient(queryHelper)
 
 	kvs := runtime.NewKVStoreService(keys[countertypes.StoreKey])
-	counterKeeper := counterkeeper.NewKeeper(kvs, runtime.EventService{})
+	counterKeeper := counterkeeper.NewKeeper(runtime.NewEnvironment(kvs, logger))
 	countertypes.RegisterQueryServer(queryHelper, counterKeeper)
 	s.counterClient = countertypes.NewQueryClient(queryHelper)
 }

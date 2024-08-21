@@ -4,6 +4,7 @@
 package types
 
 import (
+	cosmossdk_io_math "cosmossdk.io/math"
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
 	types "github.com/cosmos/cosmos-sdk/types"
@@ -34,23 +35,19 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 type Budget struct {
 	// recipient_address is the address of the recipient who can claim the budget.
 	RecipientAddress string `protobuf:"bytes,1,opt,name=recipient_address,json=recipientAddress,proto3" json:"recipient_address,omitempty"`
-	// total_budget is the total amount allocated for the budget.
-	TotalBudget *types.Coin `protobuf:"bytes,2,opt,name=total_budget,json=totalBudget,proto3" json:"total_budget,omitempty"`
 	// claimed_amount is the total amount claimed from the total budget amount requested.
-	ClaimedAmount *types.Coin `protobuf:"bytes,3,opt,name=claimed_amount,json=claimedAmount,proto3" json:"claimed_amount,omitempty"`
-	// start_time is the time when the budget becomes claimable.
-	StartTime *time.Time `protobuf:"bytes,4,opt,name=start_time,json=startTime,proto3,stdtime" json:"start_time,omitempty"`
-	// next_claim_from is the time when the budget was last successfully claimed or distributed.
-	// It is used to track the next starting claim time for fund distribution. If set, it cannot be less than start_time.
-	NextClaimFrom *time.Time `protobuf:"bytes,5,opt,name=next_claim_from,json=nextClaimFrom,proto3,stdtime" json:"next_claim_from,omitempty"`
-	// tranches is the number of times the total budget amount is to be distributed.
-	Tranches uint64 `protobuf:"varint,6,opt,name=tranches,proto3" json:"tranches,omitempty"`
+	ClaimedAmount *types.Coin `protobuf:"bytes,2,opt,name=claimed_amount,json=claimedAmount,proto3" json:"claimed_amount,omitempty"`
+	// last_claimed_at is the time when the budget was last successfully claimed or distributed.
+	// It is used to track the next starting claim time for fund distribution.
+	LastClaimedAt *time.Time `protobuf:"bytes,3,opt,name=last_claimed_at,json=lastClaimedAt,proto3,stdtime" json:"last_claimed_at,omitempty"`
 	// tranches_left is the number of tranches left for the amount to be distributed.
-	TranchesLeft uint64 `protobuf:"varint,7,opt,name=tranches_left,json=tranchesLeft,proto3" json:"tranches_left,omitempty"`
+	TranchesLeft uint64 `protobuf:"varint,4,opt,name=tranches_left,json=tranchesLeft,proto3" json:"tranches_left,omitempty"`
+	// budget_per_tranche is the amount allocated per tranche.
+	BudgetPerTranche *types.Coin `protobuf:"bytes,5,opt,name=budget_per_tranche,json=budgetPerTranche,proto3" json:"budget_per_tranche,omitempty"`
 	// Period is the time interval(number of seconds) at which funds distribution should be performed.
 	// For example, if a period is set to 3600, it represents an action that
 	// should occur every hour (3600 seconds).
-	Period *time.Duration `protobuf:"bytes,8,opt,name=period,proto3,stdduration" json:"period,omitempty"`
+	Period *time.Duration `protobuf:"bytes,6,opt,name=period,proto3,stdduration" json:"period,omitempty"`
 }
 
 func (m *Budget) Reset()         { *m = Budget{} }
@@ -93,13 +90,6 @@ func (m *Budget) GetRecipientAddress() string {
 	return ""
 }
 
-func (m *Budget) GetTotalBudget() *types.Coin {
-	if m != nil {
-		return m.TotalBudget
-	}
-	return nil
-}
-
 func (m *Budget) GetClaimedAmount() *types.Coin {
 	if m != nil {
 		return m.ClaimedAmount
@@ -107,25 +97,11 @@ func (m *Budget) GetClaimedAmount() *types.Coin {
 	return nil
 }
 
-func (m *Budget) GetStartTime() *time.Time {
+func (m *Budget) GetLastClaimedAt() *time.Time {
 	if m != nil {
-		return m.StartTime
+		return m.LastClaimedAt
 	}
 	return nil
-}
-
-func (m *Budget) GetNextClaimFrom() *time.Time {
-	if m != nil {
-		return m.NextClaimFrom
-	}
-	return nil
-}
-
-func (m *Budget) GetTranches() uint64 {
-	if m != nil {
-		return m.Tranches
-	}
-	return 0
 }
 
 func (m *Budget) GetTranchesLeft() uint64 {
@@ -135,6 +111,13 @@ func (m *Budget) GetTranchesLeft() uint64 {
 	return 0
 }
 
+func (m *Budget) GetBudgetPerTranche() *types.Coin {
+	if m != nil {
+		return m.BudgetPerTranche
+	}
+	return nil
+}
+
 func (m *Budget) GetPeriod() *time.Duration {
 	if m != nil {
 		return m.Period
@@ -142,8 +125,66 @@ func (m *Budget) GetPeriod() *time.Duration {
 	return nil
 }
 
+// ContinuousFund defines the fields of continuous fund proposal.
+type ContinuousFund struct {
+	// Recipient address of the account receiving funds.
+	Recipient string `protobuf:"bytes,1,opt,name=recipient,proto3" json:"recipient,omitempty"`
+	// Percentage is the percentage of funds to be allocated from Community pool.
+	Percentage cosmossdk_io_math.LegacyDec `protobuf:"bytes,2,opt,name=percentage,proto3,customtype=cosmossdk.io/math.LegacyDec" json:"percentage"`
+	// Optional, if expiry is set, removes the state object when expired.
+	Expiry *time.Time `protobuf:"bytes,3,opt,name=expiry,proto3,stdtime" json:"expiry,omitempty"`
+}
+
+func (m *ContinuousFund) Reset()         { *m = ContinuousFund{} }
+func (m *ContinuousFund) String() string { return proto.CompactTextString(m) }
+func (*ContinuousFund) ProtoMessage()    {}
+func (*ContinuousFund) Descriptor() ([]byte, []int) {
+	return fileDescriptor_c1b7d0ea246d7f44, []int{1}
+}
+func (m *ContinuousFund) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ContinuousFund) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ContinuousFund.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ContinuousFund) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ContinuousFund.Merge(m, src)
+}
+func (m *ContinuousFund) XXX_Size() int {
+	return m.Size()
+}
+func (m *ContinuousFund) XXX_DiscardUnknown() {
+	xxx_messageInfo_ContinuousFund.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ContinuousFund proto.InternalMessageInfo
+
+func (m *ContinuousFund) GetRecipient() string {
+	if m != nil {
+		return m.Recipient
+	}
+	return ""
+}
+
+func (m *ContinuousFund) GetExpiry() *time.Time {
+	if m != nil {
+		return m.Expiry
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Budget)(nil), "cosmos.protocolpool.v1.Budget")
+	proto.RegisterType((*ContinuousFund)(nil), "cosmos.protocolpool.v1.ContinuousFund")
 }
 
 func init() {
@@ -151,35 +192,39 @@ func init() {
 }
 
 var fileDescriptor_c1b7d0ea246d7f44 = []byte{
-	// 444 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x52, 0x3f, 0x6f, 0xd4, 0x30,
-	0x1c, 0xbd, 0xd0, 0xe3, 0x68, 0xdd, 0x1e, 0x7f, 0xa2, 0x0a, 0xb9, 0x19, 0xd2, 0xa3, 0x2c, 0xb7,
-	0xe0, 0xe8, 0x60, 0x60, 0x00, 0x09, 0x9a, 0x02, 0x62, 0x60, 0x3a, 0x98, 0x58, 0x2c, 0x27, 0xf1,
-	0x05, 0x8b, 0x24, 0xbf, 0xc8, 0xfe, 0xdd, 0xa9, 0x7c, 0x8b, 0x8e, 0x7c, 0x10, 0x3e, 0x04, 0x63,
-	0x85, 0x18, 0xd8, 0x40, 0x77, 0x5f, 0x04, 0xc5, 0x76, 0xaa, 0xd2, 0x85, 0x6e, 0xce, 0xfb, 0xbd,
-	0xf7, 0xf2, 0xfc, 0xfc, 0x23, 0x47, 0x39, 0x98, 0x1a, 0x4c, 0xd2, 0x6a, 0x40, 0xc8, 0xa1, 0x6a,
-	0x01, 0xaa, 0x64, 0x35, 0x4b, 0xf0, 0x4b, 0x2b, 0x0d, 0xb3, 0x68, 0x78, 0xdf, 0x71, 0xd8, 0x65,
-	0x0e, 0x5b, 0xcd, 0xa2, 0xfd, 0x12, 0x4a, 0xb0, 0x60, 0xd2, 0x9d, 0xdc, 0x3c, 0x3a, 0x70, 0x6c,
-	0xee, 0x06, 0x97, 0xa5, 0x51, 0xec, 0x7f, 0x96, 0x09, 0x23, 0x93, 0xd5, 0x2c, 0x93, 0x28, 0x66,
-	0x49, 0x0e, 0xaa, 0xf1, 0xf3, 0xc3, 0x12, 0xa0, 0xac, 0xa4, 0x0b, 0x93, 0x2d, 0x17, 0x09, 0xaa,
-	0x5a, 0x1a, 0x14, 0x75, 0xdb, 0x1b, 0x5c, 0x25, 0x14, 0x4b, 0x2d, 0x50, 0x81, 0x37, 0x38, 0xfa,
-	0xb9, 0x45, 0x46, 0xe9, 0xb2, 0x28, 0x25, 0x86, 0xaf, 0xc9, 0x3d, 0x2d, 0x73, 0xd5, 0x2a, 0xd9,
-	0x20, 0x17, 0x45, 0xa1, 0xa5, 0x31, 0x34, 0x98, 0x04, 0xd3, 0x9d, 0x94, 0xfe, 0xf8, 0xf6, 0x68,
-	0xdf, 0x07, 0x3b, 0x76, 0x93, 0xf7, 0xa8, 0x55, 0x53, 0xce, 0xef, 0x5e, 0x48, 0x3c, 0x1e, 0x3e,
-	0x27, 0x7b, 0x08, 0x28, 0x2a, 0x9e, 0x59, 0x5b, 0x7a, 0x63, 0x12, 0x4c, 0x77, 0x1f, 0x1f, 0x30,
-	0x2f, 0xef, 0x6e, 0xc2, 0xfc, 0x4d, 0xd8, 0x09, 0xa8, 0x66, 0xbe, 0x6b, 0xe9, 0x3e, 0xc4, 0x4b,
-	0x72, 0x3b, 0xaf, 0x84, 0xaa, 0x65, 0xc1, 0x45, 0x0d, 0xcb, 0x06, 0xe9, 0xd6, 0xff, 0xf4, 0x63,
-	0x2f, 0x38, 0xb6, 0xfc, 0xf0, 0x05, 0x21, 0x06, 0x85, 0x46, 0xde, 0x55, 0x41, 0x87, 0x56, 0x1d,
-	0x31, 0x57, 0x03, 0xeb, 0x6b, 0x60, 0x1f, 0xfa, 0x9e, 0xd2, 0xe1, 0xd9, 0xef, 0xc3, 0x60, 0xbe,
-	0x63, 0x35, 0x1d, 0x1a, 0xbe, 0x25, 0x77, 0x1a, 0x79, 0x8a, 0xdc, 0xda, 0xf2, 0x85, 0x86, 0x9a,
-	0xde, 0xbc, 0xa6, 0xcb, 0xb8, 0x13, 0x9e, 0x74, 0xba, 0x37, 0x1a, 0xea, 0x30, 0x22, 0xdb, 0xa8,
-	0x45, 0x93, 0x7f, 0x92, 0x86, 0x8e, 0x26, 0xc1, 0x74, 0x38, 0xbf, 0xf8, 0x0e, 0x1f, 0x92, 0x71,
-	0x7f, 0xe6, 0x95, 0x5c, 0x20, 0xbd, 0x65, 0x09, 0x7b, 0x3d, 0xf8, 0x4e, 0x2e, 0x30, 0x7c, 0x4a,
-	0x46, 0xad, 0xd4, 0x0a, 0x0a, 0xba, 0xed, 0x5b, 0xb8, 0x9a, 0xe0, 0x95, 0x7f, 0xce, 0x74, 0xf8,
-	0xb5, 0x0b, 0xe0, 0xe9, 0xe9, 0xb3, 0xef, 0xeb, 0x38, 0x38, 0x5f, 0xc7, 0xc1, 0x9f, 0x75, 0x1c,
-	0x9c, 0x6d, 0xe2, 0xc1, 0xf9, 0x26, 0x1e, 0xfc, 0xda, 0xc4, 0x83, 0x8f, 0x0f, 0x5c, 0x8f, 0xa6,
-	0xf8, 0xcc, 0x14, 0x24, 0xa7, 0xff, 0xae, 0xb1, 0xdd, 0xe1, 0x6c, 0x64, 0xb1, 0x27, 0x7f, 0x03,
-	0x00, 0x00, 0xff, 0xff, 0x07, 0x16, 0x5b, 0x67, 0xea, 0x02, 0x00, 0x00,
+	// 502 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0x3d, 0x6f, 0xd3, 0x40,
+	0x18, 0x8e, 0x69, 0x88, 0x94, 0x83, 0x94, 0x72, 0xaa, 0x90, 0x1b, 0x24, 0x27, 0x84, 0x25, 0x4b,
+	0xcf, 0x0a, 0x48, 0x80, 0xc4, 0x42, 0x9d, 0xf0, 0x31, 0x74, 0x80, 0xd0, 0x89, 0xc5, 0x3a, 0xdb,
+	0x6f, 0xdc, 0x13, 0xf6, 0x9d, 0x75, 0x77, 0x8e, 0x9a, 0x95, 0x5f, 0xd0, 0x91, 0x1f, 0xd2, 0x1f,
+	0xd1, 0xb1, 0xaa, 0x84, 0x84, 0x18, 0x0a, 0x4a, 0xfe, 0x08, 0x8a, 0xef, 0x12, 0xd2, 0x2e, 0x65,
+	0xb3, 0xde, 0xe7, 0xc3, 0xcf, 0xf3, 0x9e, 0x5e, 0xd4, 0x8b, 0x85, 0xca, 0x85, 0xf2, 0x0b, 0x29,
+	0xb4, 0x88, 0x45, 0x56, 0x08, 0x91, 0xf9, 0xd3, 0x81, 0xaf, 0x67, 0x05, 0x28, 0x52, 0x4d, 0xf1,
+	0x23, 0xc3, 0x21, 0x9b, 0x1c, 0x32, 0x1d, 0xb4, 0x77, 0x53, 0x91, 0x8a, 0x6a, 0xe8, 0x2f, 0xbf,
+	0x0c, 0xde, 0xde, 0x33, 0xec, 0xd0, 0x00, 0x9b, 0xd2, 0xb6, 0x67, 0x7f, 0x16, 0x51, 0x05, 0xfe,
+	0x74, 0x10, 0x81, 0xa6, 0x03, 0x3f, 0x16, 0x8c, 0x5b, 0xbc, 0x93, 0x0a, 0x91, 0x66, 0x60, 0xc2,
+	0x44, 0xe5, 0xc4, 0xd7, 0x2c, 0x07, 0xa5, 0x69, 0x5e, 0xac, 0x0c, 0x6e, 0x12, 0x92, 0x52, 0x52,
+	0xcd, 0x84, 0x35, 0xe8, 0x7d, 0xdb, 0x42, 0x8d, 0xa0, 0x4c, 0x52, 0xd0, 0xf8, 0x2d, 0x7a, 0x28,
+	0x21, 0x66, 0x05, 0x03, 0xae, 0x43, 0x9a, 0x24, 0x12, 0x94, 0x72, 0x9d, 0xae, 0xd3, 0x6f, 0x06,
+	0xee, 0xe5, 0xd9, 0xfe, 0xae, 0x0d, 0x76, 0x60, 0x90, 0xcf, 0x5a, 0x32, 0x9e, 0x8e, 0x77, 0xd6,
+	0x12, 0x3b, 0xc7, 0x6f, 0xd0, 0x76, 0x9c, 0x51, 0x96, 0x43, 0x12, 0xd2, 0x5c, 0x94, 0x5c, 0xbb,
+	0x77, 0xba, 0x4e, 0xff, 0xde, 0xb3, 0x3d, 0x62, 0x0d, 0x96, 0x5d, 0x88, 0xed, 0x42, 0x86, 0x82,
+	0xf1, 0x71, 0xcb, 0x0a, 0x0e, 0x2a, 0x3e, 0xfe, 0x80, 0x1e, 0x64, 0x54, 0xe9, 0x70, 0x6d, 0xa3,
+	0xdd, 0xad, 0xca, 0xa2, 0x4d, 0x4c, 0x1b, 0xb2, 0x6a, 0x43, 0x8e, 0x56, 0x75, 0x83, 0xfa, 0xe9,
+	0xef, 0x8e, 0x33, 0x6e, 0x2d, 0x85, 0x43, 0xeb, 0xa6, 0xf1, 0x53, 0xd4, 0xd2, 0x92, 0xf2, 0xf8,
+	0x18, 0x54, 0x98, 0xc1, 0x44, 0xbb, 0xf5, 0xae, 0xd3, 0xaf, 0x8f, 0xef, 0xaf, 0x86, 0x87, 0x30,
+	0xd1, 0xf8, 0x3d, 0xc2, 0x51, 0xb5, 0x81, 0xb0, 0x00, 0x19, 0x5a, 0xc8, 0xbd, 0x7b, 0x5b, 0xe8,
+	0x1d, 0x23, 0xfa, 0x08, 0xf2, 0xc8, 0x48, 0xf0, 0x4b, 0xd4, 0x28, 0x40, 0x32, 0x91, 0xb8, 0x0d,
+	0x2b, 0xbe, 0x19, 0x77, 0x64, 0x97, 0x1f, 0xd4, 0xbf, 0x2f, 0xd3, 0x5a, 0x7a, 0xef, 0x87, 0x83,
+	0xb6, 0x87, 0x82, 0x6b, 0xc6, 0x4b, 0x51, 0xaa, 0x77, 0x25, 0x4f, 0xf0, 0x0b, 0xd4, 0x5c, 0x6f,
+	0xf6, 0xd6, 0x47, 0xf8, 0x47, 0xc5, 0x9f, 0x10, 0x2a, 0x40, 0xc6, 0xc0, 0x35, 0x4d, 0xa1, 0xda,
+	0x7c, 0x33, 0x18, 0x9c, 0x5f, 0x75, 0x6a, 0xbf, 0xae, 0x3a, 0x8f, 0x8d, 0x58, 0x25, 0x5f, 0x09,
+	0x13, 0x7e, 0x4e, 0xf5, 0x31, 0x39, 0x84, 0x94, 0xc6, 0xb3, 0x11, 0xc4, 0x97, 0x67, 0xfb, 0xc8,
+	0x7a, 0x8f, 0x20, 0x1e, 0x6f, 0x98, 0xe0, 0x57, 0xa8, 0x01, 0x27, 0x05, 0x93, 0xb3, 0xff, 0x7e,
+	0x05, 0xcb, 0x0f, 0x5e, 0x9f, 0xcf, 0x3d, 0xe7, 0x62, 0xee, 0x39, 0x7f, 0xe6, 0x9e, 0x73, 0xba,
+	0xf0, 0x6a, 0x17, 0x0b, 0xaf, 0xf6, 0x73, 0xe1, 0xd5, 0xbe, 0x3c, 0xb9, 0x16, 0xe5, 0xe4, 0xfa,
+	0x31, 0x55, 0x97, 0x14, 0x35, 0xaa, 0xd9, 0xf3, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x86, 0x82,
+	0x01, 0x87, 0x70, 0x03, 0x00, 0x00,
 }
 
 func (m *Budget) Marshal() (dAtA []byte, err error) {
@@ -210,41 +255,11 @@ func (m *Budget) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= n1
 		i = encodeVarintTypes(dAtA, i, uint64(n1))
 		i--
-		dAtA[i] = 0x42
+		dAtA[i] = 0x32
 	}
-	if m.TranchesLeft != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.TranchesLeft))
-		i--
-		dAtA[i] = 0x38
-	}
-	if m.Tranches != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.Tranches))
-		i--
-		dAtA[i] = 0x30
-	}
-	if m.NextClaimFrom != nil {
-		n2, err2 := github_com_cosmos_gogoproto_types.StdTimeMarshalTo(*m.NextClaimFrom, dAtA[i-github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.NextClaimFrom):])
-		if err2 != nil {
-			return 0, err2
-		}
-		i -= n2
-		i = encodeVarintTypes(dAtA, i, uint64(n2))
-		i--
-		dAtA[i] = 0x2a
-	}
-	if m.StartTime != nil {
-		n3, err3 := github_com_cosmos_gogoproto_types.StdTimeMarshalTo(*m.StartTime, dAtA[i-github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.StartTime):])
-		if err3 != nil {
-			return 0, err3
-		}
-		i -= n3
-		i = encodeVarintTypes(dAtA, i, uint64(n3))
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.ClaimedAmount != nil {
+	if m.BudgetPerTranche != nil {
 		{
-			size, err := m.ClaimedAmount.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.BudgetPerTranche.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -252,11 +267,26 @@ func (m *Budget) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i = encodeVarintTypes(dAtA, i, uint64(size))
 		}
 		i--
+		dAtA[i] = 0x2a
+	}
+	if m.TranchesLeft != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.TranchesLeft))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.LastClaimedAt != nil {
+		n3, err3 := github_com_cosmos_gogoproto_types.StdTimeMarshalTo(*m.LastClaimedAt, dAtA[i-github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.LastClaimedAt):])
+		if err3 != nil {
+			return 0, err3
+		}
+		i -= n3
+		i = encodeVarintTypes(dAtA, i, uint64(n3))
+		i--
 		dAtA[i] = 0x1a
 	}
-	if m.TotalBudget != nil {
+	if m.ClaimedAmount != nil {
 		{
-			size, err := m.TotalBudget.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.ClaimedAmount.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -270,6 +300,56 @@ func (m *Budget) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i -= len(m.RecipientAddress)
 		copy(dAtA[i:], m.RecipientAddress)
 		i = encodeVarintTypes(dAtA, i, uint64(len(m.RecipientAddress)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ContinuousFund) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ContinuousFund) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ContinuousFund) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Expiry != nil {
+		n5, err5 := github_com_cosmos_gogoproto_types.StdTimeMarshalTo(*m.Expiry, dAtA[i-github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.Expiry):])
+		if err5 != nil {
+			return 0, err5
+		}
+		i -= n5
+		i = encodeVarintTypes(dAtA, i, uint64(n5))
+		i--
+		dAtA[i] = 0x1a
+	}
+	{
+		size := m.Percentage.Size()
+		i -= size
+		if _, err := m.Percentage.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintTypes(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if len(m.Recipient) > 0 {
+		i -= len(m.Recipient)
+		copy(dAtA[i:], m.Recipient)
+		i = encodeVarintTypes(dAtA, i, uint64(len(m.Recipient)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -297,30 +377,42 @@ func (m *Budget) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTypes(uint64(l))
 	}
-	if m.TotalBudget != nil {
-		l = m.TotalBudget.Size()
-		n += 1 + l + sovTypes(uint64(l))
-	}
 	if m.ClaimedAmount != nil {
 		l = m.ClaimedAmount.Size()
 		n += 1 + l + sovTypes(uint64(l))
 	}
-	if m.StartTime != nil {
-		l = github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.StartTime)
+	if m.LastClaimedAt != nil {
+		l = github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.LastClaimedAt)
 		n += 1 + l + sovTypes(uint64(l))
-	}
-	if m.NextClaimFrom != nil {
-		l = github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.NextClaimFrom)
-		n += 1 + l + sovTypes(uint64(l))
-	}
-	if m.Tranches != 0 {
-		n += 1 + sovTypes(uint64(m.Tranches))
 	}
 	if m.TranchesLeft != 0 {
 		n += 1 + sovTypes(uint64(m.TranchesLeft))
 	}
+	if m.BudgetPerTranche != nil {
+		l = m.BudgetPerTranche.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
 	if m.Period != nil {
 		l = github_com_cosmos_gogoproto_types.SizeOfStdDuration(*m.Period)
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+
+func (m *ContinuousFund) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Recipient)
+	if l > 0 {
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	l = m.Percentage.Size()
+	n += 1 + l + sovTypes(uint64(l))
+	if m.Expiry != nil {
+		l = github_com_cosmos_gogoproto_types.SizeOfStdTime(*m.Expiry)
 		n += 1 + l + sovTypes(uint64(l))
 	}
 	return n
@@ -395,42 +487,6 @@ func (m *Budget) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TotalBudget", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.TotalBudget == nil {
-				m.TotalBudget = &types.Coin{}
-			}
-			if err := m.TotalBudget.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ClaimedAmount", wireType)
 			}
 			var msglen int
@@ -465,98 +521,43 @@ func (m *Budget) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastClaimedAt", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LastClaimedAt == nil {
+				m.LastClaimedAt = new(time.Time)
+			}
+			if err := github_com_cosmos_gogoproto_types.StdTimeUnmarshal(m.LastClaimedAt, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StartTime", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StartTime == nil {
-				m.StartTime = new(time.Time)
-			}
-			if err := github_com_cosmos_gogoproto_types.StdTimeUnmarshal(m.StartTime, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NextClaimFrom", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.NextClaimFrom == nil {
-				m.NextClaimFrom = new(time.Time)
-			}
-			if err := github_com_cosmos_gogoproto_types.StdTimeUnmarshal(m.NextClaimFrom, dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Tranches", wireType)
-			}
-			m.Tranches = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Tranches |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 7:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field TranchesLeft", wireType)
 			}
@@ -575,7 +576,43 @@ func (m *Budget) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 8:
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BudgetPerTranche", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.BudgetPerTranche == nil {
+				m.BudgetPerTranche = &types.Coin{}
+			}
+			if err := m.BudgetPerTranche.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Period", wireType)
 			}
@@ -608,6 +645,158 @@ func (m *Budget) Unmarshal(dAtA []byte) error {
 				m.Period = new(time.Duration)
 			}
 			if err := github_com_cosmos_gogoproto_types.StdDurationUnmarshal(m.Period, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ContinuousFund) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ContinuousFund: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ContinuousFund: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Recipient", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Recipient = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Percentage", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Percentage.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Expiry", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Expiry == nil {
+				m.Expiry = new(time.Time)
+			}
+			if err := github_com_cosmos_gogoproto_types.StdTimeUnmarshal(m.Expiry, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

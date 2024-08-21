@@ -17,7 +17,7 @@ Each node exposes the following endpoints for users to interact with a node, eac
 * the CometBFT RPC endpoint (default port: `26657`).
 
 :::tip
-The node also exposes some other endpoints, such as the CometBFT P2P endpoint, or the [Prometheus endpoint](https://docs.cometbft.com/v0.37/core/metrics), which are not directly related to the Cosmos SDK. Please refer to the [CometBFT documentation](https://docs.cometbft.com/v0.37/core/configuration) for more information about these endpoints.
+The node also exposes some other endpoints, such as the CometBFT P2P endpoint, or the [Prometheus endpoint](https://docs.cometbft.com/v1.0/explanation/core/metrics), which are not directly related to the Cosmos SDK. Please refer to the [CometBFT Configuration Manual](https://docs.cometbft.com/v1.0/references/config/) for more information about how to configure these CometBFT endpoints.
 :::
 
 :::note
@@ -26,7 +26,7 @@ All endpoints are defaulted to localhost and must be modified to be exposed to t
 
 ## gRPC Server
 
-In the Cosmos SDK, Protobuf is the main [encoding](./05-encoding) library. This brings a wide range of Protobuf-based tools that can be plugged into the Cosmos SDK. One such tool is [gRPC](https://grpc.io), a modern open-source high performance RPC framework that has decent client support in several languages.
+In the Cosmos SDK, Protobuf is the main [encoding](https://docs.cosmos.network/main/learn/advanced/encoding) library. This brings a wide range of Protobuf-based tools that can be plugged into the Cosmos SDK. One such tool is [gRPC](https://grpc.io), a modern open-source high performance RPC framework that has decent client support in several languages.
 
 Each module exposes a [Protobuf `Query` service](../../build/building-modules/02-messages-and-queries.md#queries) that defines state queries. The `Query` services and a transaction service used to broadcast transactions are hooked up to the gRPC server via the following function inside the application:
 
@@ -34,7 +34,7 @@ Each module exposes a [Protobuf `Query` service](../../build/building-modules/02
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server/types/app.go#L46-L48
 ```
 
-Note: It is not possible to expose any [Protobuf `Msg` service](../../build/building-modules/02-messages-and-queries.md#messages) endpoints via gRPC. Transactions must be generated and signed using the CLI or programmatically before they can be broadcasted using gRPC. See [Generating, Signing, and Broadcasting Transactions](../../user/run-node/03-txs.md) for more information.
+Note: It is not possible to expose any [Protobuf `Msg` service](../../build/building-modules/02-messages-and-queries.md#messages) endpoints via gRPC. Transactions must be generated and signed using the CLI or programmatically before they can be broadcasted using gRPC. See [Generating, Signing, and Broadcasting Transactions](https://docs.cosmos.network/main/user/run-node/txs) for more information.
 
 The `grpc.Server` is a concrete gRPC server, which spawns and serves all gRPC query requests and a broadcast transaction request. This server can be configured inside `~/.simapp/config/app.toml`:
 
@@ -44,8 +44,8 @@ The `grpc.Server` is a concrete gRPC server, which spawns and serves all gRPC qu
 :::tip
 `~/.simapp` is the directory where the node's configuration and databases are stored. By default, it's set to `~/.{app_name}`.
 :::
-
-Once the gRPC server is started, you can send requests to it using a gRPC client. Some examples are given in our [Interact with the Node](../../user/run-node/02-interact-node.md#using-grpc) tutorial.
+<!-- markdown-link-check-disable-next-line -->
+Once the gRPC server is started, you can send requests to it using a gRPC client. Some examples are given in our [Interact with the Node](../../user/run-node/01-run-node.md#configuring-the-node-using-apptoml-and-configtoml) tutorial.
 
 An overview of all available gRPC endpoints shipped with the Cosmos SDK is [Protobuf documentation](https://buf.build/cosmos/cosmos-sdk).
 
@@ -82,7 +82,7 @@ The Cosmos SDK's [Swagger generation script](https://github.com/cosmos/cosmos-sd
 
 ## CometBFT RPC
 
-Independently from the Cosmos SDK, CometBFT also exposes a RPC server. This RPC server can be configured by tuning parameters under the `rpc` table in the `~/.simapp/config/config.toml`, the default listening address is `tcp://localhost:26657`. An OpenAPI specification of all CometBFT RPC endpoints is available [here](https://docs.cometbft.com/main/rpc/).
+Independently from the Cosmos SDK, CometBFT also exposes a RPC server. This RPC server can be configured by tuning parameters under the `rpc` table in the `~/.simapp/config/config.toml`, the default listening address is `tcp://localhost:26657`. An OpenAPI specification of all CometBFT RPC endpoints is available [here](https://docs.cometbft.com/v1.0/rpc/).
 
 Some CometBFT RPC endpoints are directly related to the Cosmos SDK:
 
@@ -94,7 +94,7 @@ Some CometBFT RPC endpoints are directly related to the Cosmos SDK:
     * `/store/{storeName}/subspace`: this will directly query the named store for key/value pairs in which the key has the value of the `data` parameter as a prefix.
     * `/p2p/filter/addr/{port}`: this will return a filtered list of the node's P2P peers by address port.
     * `/p2p/filter/id/{id}`: this will return a filtered list of the node's P2P peers by ID.
-* `/broadcast_tx_{aync,async,commit}`: these 3 endpoints will broadcast a transaction to other peers. CLI, gRPC and REST expose [a way to broadcast transactions](./01-transactions.md#broadcasting-the-transaction), but they all use these 3 CometBFT RPCs under the hood.
+* `/broadcast_tx_{sync,async,commit}`: these 3 endpoints will broadcast a transaction to other peers. CLI, gRPC and REST expose [a way to broadcast transactions](./01-transactions.md#broadcasting-the-transaction), but they all use these 3 CometBFT RPCs under the hood.
 
 ## Comparison Table
 

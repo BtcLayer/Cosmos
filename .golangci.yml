@@ -1,18 +1,8 @@
 run:
   tests: true
   timeout: 15m
-  sort-results: true
   allow-parallel-runners: true
-  exclude-dir: testutil/testdata
-  skip-files:
-    - server/grpc/gogoreflection/fix_registration.go
-    - "fix_registration.go"
-    - ".*\\.pb\\.go$"
-    - ".*\\.pb\\.gw\\.go$"
-    - ".*\\.pulsar\\.go$"
-    - crypto/keys/secp256k1/internal/*
-
-build-tags:
+  build-tags:
   - e2e
   - ledger
   - test_ledger_mock
@@ -21,12 +11,13 @@ build-tags:
 linters:
   disable-all: true
   enable:
-    - errcheck
     - dogsled
+    - errcheck
+    - errorlint
     - exportloopref
+    - gci
     - goconst
     - gocritic
-    - gci
     - gofumpt
     - gosec
     - gosimple
@@ -35,15 +26,25 @@ linters:
     - misspell
     - nakedret
     - nolintlint
-    - staticcheck
     - revive
+    - staticcheck
     - stylecheck
-    - typecheck
     - thelper
+    - typecheck
     - unconvert
     - unused
 
 issues:
+  exclude-dirs: 
+    - testutil/testdata
+  exclude-files:
+    - server/grpc/gogoreflection/fix_registration.go
+    - "fix_registration.go"
+    - ".*\\.pb\\.go$"
+    - ".*\\.pb\\.gw\\.go$"
+    - ".*\\.pulsar\\.go$"
+    - crypto/keys/secp256k1/internal/*
+    - types/coin_regex.go
   exclude-rules:
     - text: "Use of weak random number generator"
       linters:
@@ -139,11 +140,8 @@ linters-settings:
     extra-rules: true
   dogsled:
     max-blank-identifiers: 6
-  maligned:
-    suggest-new: true
   nolintlint:
     allow-unused: false
-    allow-leading-space: true
     require-explanation: true
     require-specific: false
   gosimple:

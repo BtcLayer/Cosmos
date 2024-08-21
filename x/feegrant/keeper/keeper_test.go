@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"cosmossdk.io/core/header"
+	coretesting "cosmossdk.io/core/testing"
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	authtypes "cosmossdk.io/x/auth/types"
@@ -16,6 +17,7 @@ import (
 	feegranttestutil "cosmossdk.io/x/feegrant/testutil"
 
 	codecaddress "github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
@@ -43,7 +45,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 	suite.addrs = simtestutil.CreateIncrementalAccounts(20)
 	key := storetypes.NewKVStoreKey(feegrant.StoreKey)
 	testCtx := testutil.DefaultContextWithDB(suite.T(), key, storetypes.NewTransientStoreKey("transient_test"))
-	encCfg := moduletestutil.MakeTestEncodingConfig(module.AppModuleBasic{})
+	encCfg := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}, module.AppModule{})
 
 	// setup gomock and initialize some globally expected executions
 	ctrl := gomock.NewController(suite.T())
@@ -60,7 +62,7 @@ func (suite *KeeperTestSuite) SetupTest() {
 		suite.encodedAddrs = append(suite.encodedAddrs, str)
 	}
 
-	suite.feegrantKeeper = keeper.NewKeeper(encCfg.Codec, runtime.NewKVStoreService(key), suite.accountKeeper)
+	suite.feegrantKeeper = keeper.NewKeeper(runtime.NewEnvironment(runtime.NewKVStoreService(key), coretesting.NewNopLogger()), encCfg.Codec, suite.accountKeeper)
 	suite.ctx = testCtx.Ctx
 	suite.msgSrvr = keeper.NewMsgServerImpl(suite.feegrantKeeper)
 	suite.atom = sdk.NewCoins(sdk.NewCoin("atom", sdkmath.NewInt(555)))
@@ -295,10 +297,12 @@ func (suite *KeeperTestSuite) TestUseGrantedFee() {
 	suite.Error(err)
 	suite.Contains(err.Error(), "fee allowance expired")
 
-	// verify: feegrant is revoked
+	// verify: feegrant is not revoked
+	// Because using the past feegrant will return err, data will be rolled back in actual scenarios.
+	// Only when the feegrant allowance used up in a certain transaction feegrant will revoked success due to err is nil
+	// abci's EndBlocker will remove the expired feegrant.
 	_, err = suite.feegrantKeeper.GetAllowance(ctx, suite.addrs[0], suite.addrs[2])
-	suite.Error(err)
-	suite.Contains(err.Error(), "not found")
+	suite.Require().NoError(err)
 }
 
 func (suite *KeeperTestSuite) TestIterateGrants() {

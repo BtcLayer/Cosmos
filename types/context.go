@@ -4,9 +4,8 @@ import (
 	"context"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	"github.com/cosmos/gogoproto/proto"
+	abci "github.com/cometbft/cometbft/api/cometbft/abci/v1"
+	cmtproto "github.com/cometbft/cometbft/api/cometbft/types/v1"
 
 	"cosmossdk.io/core/comet"
 	"cosmossdk.io/core/header"
@@ -26,6 +25,7 @@ const (
 	ExecModePrepareProposal
 	ExecModeProcessProposal
 	ExecModeVoteExtension
+	ExecModeVerifyVoteExtension
 	ExecModeFinalize
 )
 
@@ -48,8 +48,8 @@ type Context struct {
 	voteInfo             []abci.VoteInfo // Deprecated: use Cometinfo.LastCommit.Votes instead, will be removed after 0.51
 	gasMeter             storetypes.GasMeter
 	blockGasMeter        storetypes.GasMeter
-	checkTx              bool
-	recheckTx            bool // if recheckTx == true, then checkTx must also be true
+	checkTx              bool // Deprecated: use execMode instead, will be removed after 0.51
+	recheckTx            bool // if recheckTx == true, then checkTx must also be true // Deprecated: use execMode instead, will be removed after 0.51
 	sigverifyTx          bool // when run simulation, because the private key corresponding to the account in the genesis.json randomly generated, we must skip the sigverify.
 	execMode             ExecMode
 	minGasPrice          DecCoins
@@ -77,10 +77,10 @@ func (c Context) Logger() log.Logger                            { return c.logge
 func (c Context) VoteInfos() []abci.VoteInfo                    { return c.voteInfo }
 func (c Context) GasMeter() storetypes.GasMeter                 { return c.gasMeter }
 func (c Context) BlockGasMeter() storetypes.GasMeter            { return c.blockGasMeter }
-func (c Context) IsCheckTx() bool                               { return c.checkTx }
-func (c Context) IsReCheckTx() bool                             { return c.recheckTx }
+func (c Context) IsCheckTx() bool                               { return c.checkTx }   // Deprecated: use core/transaction service instead
+func (c Context) IsReCheckTx() bool                             { return c.recheckTx } // Deprecated: use core/transaction service instead
 func (c Context) IsSigverifyTx() bool                           { return c.sigverifyTx }
-func (c Context) ExecMode() ExecMode                            { return c.execMode }
+func (c Context) ExecMode() ExecMode                            { return c.execMode } // Deprecated: use core/transaction service instead
 func (c Context) MinGasPrices() DecCoins                        { return c.minGasPrice }
 func (c Context) EventManager() EventManagerI                   { return c.eventManager }
 func (c Context) Priority() int64                               { return c.priority }
@@ -90,10 +90,9 @@ func (c Context) StreamingManager() storetypes.StreamingManager { return c.strea
 func (c Context) CometInfo() comet.Info                         { return c.cometInfo }
 func (c Context) HeaderInfo() header.Info                       { return c.headerInfo }
 
-// clone the header before returning
+// BlockHeader returns the header by value.
 func (c Context) BlockHeader() cmtproto.Header {
-	msg := proto.Clone(&c.header).(*cmtproto.Header)
-	return *msg
+	return c.header
 }
 
 // HeaderHash returns a copy of the header hash obtained during abci.RequestBeginBlock
@@ -103,6 +102,8 @@ func (c Context) HeaderHash() []byte {
 	return hash
 }
 
+// Deprecated: getting consensus params from the context is deprecated and will be removed after 0.51
+// Querying the consensus module for the parameters is required in server/v2
 func (c Context) ConsensusParams() cmtproto.ConsensusParams {
 	return c.consParams
 }
@@ -392,6 +393,19 @@ func UnwrapSDKContext(ctx context.Context) Context {
 	return ctx.Value(SdkContextKey).(Context)
 }
 
+// TryUnwrapSDKContext attempts to retrieve a Context from a context.Context
+func TryUnwrapSDKContext(ctx context.Context) (Context, bool) {
+	if sdkCtx, ok := ctx.(Context); ok {
+		return sdkCtx, true
+	}
+	v := ctx.Value(SdkContextKey)
+	if v == nil {
+		return Context{}, false
+	}
+	c, ok := v.(Context)
+	return c, ok
+}
+
 // ToSDKEvidence takes comet evidence and returns sdk evidence
 func ToSDKEvidence(ev []abci.Misbehavior) []comet.Evidence {
 	evidence := make([]comet.Evidence, len(ev))
@@ -410,7 +424,7 @@ func ToSDKEvidence(ev []abci.Misbehavior) []comet.Evidence {
 	return evidence
 }
 
-// ToSDKDecidedCommitInfo takes comet commit info and returns sdk commit info
+// ToSDKCommitInfo takes comet commit info and returns sdk commit info
 func ToSDKCommitInfo(commit abci.CommitInfo) comet.CommitInfo {
 	ci := comet.CommitInfo{
 		Round: commit.Round,
@@ -432,16 +446,17 @@ func ToSDKCommitInfo(commit abci.CommitInfo) comet.CommitInfo {
 func ToSDKExtendedCommitInfo(commit abci.ExtendedCommitInfo) comet.CommitInfo {
 	ci := comet.CommitInfo{
 		Round: commit.Round,
+		Votes: make([]comet.VoteInfo, len(commit.Votes)),
 	}
 
-	for _, v := range commit.Votes {
-		ci.Votes = append(ci.Votes, comet.VoteInfo{
+	for i, v := range commit.Votes {
+		ci.Votes[i] = comet.VoteInfo{
 			Validator: comet.Validator{
 				Address: v.Validator.Address,
 				Power:   v.Validator.Power,
 			},
 			BlockIDFlag: comet.BlockIDFlag(v.BlockIdFlag),
-		})
+		}
 	}
 
 	return ci

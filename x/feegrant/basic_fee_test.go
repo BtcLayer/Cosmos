@@ -1,12 +1,15 @@
 package feegrant_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"cosmossdk.io/core/appmodule/v2"
+	corecontext "cosmossdk.io/core/context"
 	"cosmossdk.io/core/header"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/feegrant"
@@ -130,13 +133,18 @@ func TestBasicFeeValidAllow(t *testing.T) {
 	for name, stc := range cases {
 		tc := stc // to make scopelint happy
 		t.Run(name, func(t *testing.T) {
-			err := tc.allowance.ValidateBasic()
+			err := tc.allowance.UpdatePeriodReset(tc.blockTime)
+			require.NoError(t, err)
+
+			err = tc.allowance.ValidateBasic()
 			require.NoError(t, err)
 
 			ctx := testCtx.Ctx.WithHeaderInfo(header.Info{Time: tc.blockTime})
-
 			// now try to deduct
-			removed, err := tc.allowance.Accept(ctx, tc.fee, []sdk.Msg{})
+			removed, err := tc.allowance.Accept(context.WithValue(ctx, corecontext.EnvironmentContextKey, appmodule.Environment{
+				HeaderService: mockHeaderService{},
+				GasService:    mockGasService{},
+			}), tc.fee, []sdk.Msg{})
 			if !tc.accept {
 				require.Error(t, err)
 				return

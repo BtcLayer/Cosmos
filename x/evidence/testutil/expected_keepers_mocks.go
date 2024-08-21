@@ -12,9 +12,8 @@ import (
 	stakingv1beta1 "cosmossdk.io/api/cosmos/staking/v1beta1"
 	address "cosmossdk.io/core/address"
 	math "cosmossdk.io/math"
-	types "cosmossdk.io/x/staking/types"
-	types0 "github.com/cosmos/cosmos-sdk/crypto/types"
-	types1 "github.com/cosmos/cosmos-sdk/types"
+	types "github.com/cosmos/cosmos-sdk/crypto/types"
+	types0 "github.com/cosmos/cosmos-sdk/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -56,10 +55,10 @@ func (mr *MockStakingKeeperMockRecorder) ConsensusAddressCodec() *gomock.Call {
 }
 
 // ValidatorByConsAddr mocks base method.
-func (m *MockStakingKeeper) ValidatorByConsAddr(arg0 context.Context, arg1 types1.ConsAddress) (types.ValidatorI, error) {
+func (m *MockStakingKeeper) ValidatorByConsAddr(arg0 context.Context, arg1 types0.ConsAddress) (types0.ValidatorI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidatorByConsAddr", arg0, arg1)
-	ret0, _ := ret[0].(types.ValidatorI)
+	ret0, _ := ret[0].(types0.ValidatorI)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -94,10 +93,10 @@ func (m *MockSlashingKeeper) EXPECT() *MockSlashingKeeperMockRecorder {
 }
 
 // GetPubkey mocks base method.
-func (m *MockSlashingKeeper) GetPubkey(arg0 context.Context, arg1 types0.Address) (types0.PubKey, error) {
+func (m *MockSlashingKeeper) GetPubkey(arg0 context.Context, arg1 types.Address) (types.PubKey, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPubkey", arg0, arg1)
-	ret0, _ := ret[0].(types0.PubKey)
+	ret0, _ := ret[0].(types.PubKey)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -109,7 +108,7 @@ func (mr *MockSlashingKeeperMockRecorder) GetPubkey(arg0, arg1 interface{}) *gom
 }
 
 // HasValidatorSigningInfo mocks base method.
-func (m *MockSlashingKeeper) HasValidatorSigningInfo(arg0 context.Context, arg1 types1.ConsAddress) bool {
+func (m *MockSlashingKeeper) HasValidatorSigningInfo(arg0 context.Context, arg1 types0.ConsAddress) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasValidatorSigningInfo", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -123,7 +122,7 @@ func (mr *MockSlashingKeeperMockRecorder) HasValidatorSigningInfo(arg0, arg1 int
 }
 
 // IsTombstoned mocks base method.
-func (m *MockSlashingKeeper) IsTombstoned(arg0 context.Context, arg1 types1.ConsAddress) bool {
+func (m *MockSlashingKeeper) IsTombstoned(arg0 context.Context, arg1 types0.ConsAddress) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsTombstoned", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -137,7 +136,7 @@ func (mr *MockSlashingKeeperMockRecorder) IsTombstoned(arg0, arg1 interface{}) *
 }
 
 // Jail mocks base method.
-func (m *MockSlashingKeeper) Jail(arg0 context.Context, arg1 types1.ConsAddress) error {
+func (m *MockSlashingKeeper) Jail(arg0 context.Context, arg1 types0.ConsAddress) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Jail", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -151,7 +150,7 @@ func (mr *MockSlashingKeeperMockRecorder) Jail(arg0, arg1 interface{}) *gomock.C
 }
 
 // JailUntil mocks base method.
-func (m *MockSlashingKeeper) JailUntil(arg0 context.Context, arg1 types1.ConsAddress, arg2 time.Time) error {
+func (m *MockSlashingKeeper) JailUntil(arg0 context.Context, arg1 types0.ConsAddress, arg2 time.Time) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "JailUntil", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -165,7 +164,7 @@ func (mr *MockSlashingKeeperMockRecorder) JailUntil(arg0, arg1, arg2 interface{}
 }
 
 // Slash mocks base method.
-func (m *MockSlashingKeeper) Slash(arg0 context.Context, arg1 types1.ConsAddress, arg2 math.LegacyDec, arg3, arg4 int64) error {
+func (m *MockSlashingKeeper) Slash(arg0 context.Context, arg1 types0.ConsAddress, arg2 math.LegacyDec, arg3, arg4 int64) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Slash", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -194,7 +193,7 @@ func (mr *MockSlashingKeeperMockRecorder) SlashFractionDoubleSign(arg0 interface
 }
 
 // SlashWithInfractionReason mocks base method.
-func (m *MockSlashingKeeper) SlashWithInfractionReason(arg0 context.Context, arg1 types1.ConsAddress, arg2 math.LegacyDec, arg3, arg4 int64, arg5 stakingv1beta1.Infraction) error {
+func (m *MockSlashingKeeper) SlashWithInfractionReason(arg0 context.Context, arg1 types0.ConsAddress, arg2 math.LegacyDec, arg3, arg4 int64, arg5 stakingv1beta1.Infraction) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SlashWithInfractionReason", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
@@ -208,7 +207,7 @@ func (mr *MockSlashingKeeperMockRecorder) SlashWithInfractionReason(arg0, arg1, 
 }
 
 // Tombstone mocks base method.
-func (m *MockSlashingKeeper) Tombstone(arg0 context.Context, arg1 types1.ConsAddress) error {
+func (m *MockSlashingKeeper) Tombstone(arg0 context.Context, arg1 types0.ConsAddress) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tombstone", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -245,7 +244,7 @@ func (m *MockAccountKeeper) EXPECT() *MockAccountKeeperMockRecorder {
 }
 
 // SetAccount mocks base method.
-func (m *MockAccountKeeper) SetAccount(ctx context.Context, acc types1.AccountI) {
+func (m *MockAccountKeeper) SetAccount(ctx context.Context, acc types0.AccountI) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetAccount", ctx, acc)
 }
@@ -254,69 +253,4 @@ func (m *MockAccountKeeper) SetAccount(ctx context.Context, acc types1.AccountI)
 func (mr *MockAccountKeeperMockRecorder) SetAccount(ctx, acc interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAccount", reflect.TypeOf((*MockAccountKeeper)(nil).SetAccount), ctx, acc)
-}
-
-// MockBankKeeper is a mock of BankKeeper interface.
-type MockBankKeeper struct {
-	ctrl     *gomock.Controller
-	recorder *MockBankKeeperMockRecorder
-}
-
-// MockBankKeeperMockRecorder is the mock recorder for MockBankKeeper.
-type MockBankKeeperMockRecorder struct {
-	mock *MockBankKeeper
-}
-
-// NewMockBankKeeper creates a new mock instance.
-func NewMockBankKeeper(ctrl *gomock.Controller) *MockBankKeeper {
-	mock := &MockBankKeeper{ctrl: ctrl}
-	mock.recorder = &MockBankKeeperMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockBankKeeper) EXPECT() *MockBankKeeperMockRecorder {
-	return m.recorder
-}
-
-// GetAllBalances mocks base method.
-func (m *MockBankKeeper) GetAllBalances(ctx types1.Context, addr types1.AccAddress) types1.Coins {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllBalances", ctx, addr)
-	ret0, _ := ret[0].(types1.Coins)
-	return ret0
-}
-
-// GetAllBalances indicates an expected call of GetAllBalances.
-func (mr *MockBankKeeperMockRecorder) GetAllBalances(ctx, addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllBalances", reflect.TypeOf((*MockBankKeeper)(nil).GetAllBalances), ctx, addr)
-}
-
-// MintCoins mocks base method.
-func (m *MockBankKeeper) MintCoins(ctx types1.Context, moduleName string, amt types1.Coins) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MintCoins", ctx, moduleName, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MintCoins indicates an expected call of MintCoins.
-func (mr *MockBankKeeperMockRecorder) MintCoins(ctx, moduleName, amt interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintCoins", reflect.TypeOf((*MockBankKeeper)(nil).MintCoins), ctx, moduleName, amt)
-}
-
-// SendCoinsFromModuleToAccount mocks base method.
-func (m *MockBankKeeper) SendCoinsFromModuleToAccount(ctx types1.Context, senderModule string, recipientAddr types1.AccAddress, amt types1.Coins) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendCoinsFromModuleToAccount", ctx, senderModule, recipientAddr, amt)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SendCoinsFromModuleToAccount indicates an expected call of SendCoinsFromModuleToAccount.
-func (mr *MockBankKeeperMockRecorder) SendCoinsFromModuleToAccount(ctx, senderModule, recipientAddr, amt interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendCoinsFromModuleToAccount", reflect.TypeOf((*MockBankKeeper)(nil).SendCoinsFromModuleToAccount), ctx, senderModule, recipientAddr, amt)
 }

@@ -1,12 +1,15 @@
 package feegrant_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"cosmossdk.io/core/appmodule/v2"
+	corecontext "cosmossdk.io/core/context"
 	"cosmossdk.io/core/header"
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/feegrant"
@@ -34,15 +37,16 @@ func TestPeriodicFeeValidAllow(t *testing.T) {
 	tenMinutes := time.Duration(10) * time.Minute
 
 	cases := map[string]struct {
-		allow         feegrant.PeriodicAllowance
-		fee           sdk.Coins
-		blockTime     time.Time
-		valid         bool // all other checks are ignored if valid=false
-		accept        bool
-		remove        bool
-		remains       sdk.Coins
-		remainsPeriod sdk.Coins
-		periodReset   time.Time
+		allow             feegrant.PeriodicAllowance
+		fee               sdk.Coins
+		blockTime         time.Time
+		valid             bool // all other checks are ignored if valid=false
+		accept            bool
+		remove            bool
+		remains           sdk.Coins
+		remainsPeriod     sdk.Coins
+		periodReset       time.Time
+		updatePeriodReset bool
 	}{
 		"empty": {
 			allow: feegrant.PeriodicAllowance{},
@@ -185,6 +189,20 @@ func TestPeriodicFeeValidAllow(t *testing.T) {
 			accept:    false,
 			remove:    true,
 		},
+		"test update PeriodReset ": {
+			allow: feegrant.PeriodicAllowance{
+				Period:           tenMinutes,
+				PeriodSpendLimit: smallAtom,
+				PeriodReset:      now.Add(30 * time.Minute),
+			},
+			blockTime:         now,
+			valid:             true,
+			accept:            true,
+			remove:            false,
+			remainsPeriod:     emptyCoins,
+			periodReset:       now.Add(10 * time.Minute),
+			updatePeriodReset: true,
+		},
 	}
 
 	for name, stc := range cases {
@@ -197,9 +215,18 @@ func TestPeriodicFeeValidAllow(t *testing.T) {
 			}
 			require.NoError(t, err)
 
+			if tc.updatePeriodReset {
+				err = tc.allow.UpdatePeriodReset(tc.blockTime)
+				require.NoError(t, err)
+			}
+
 			ctx := testCtx.Ctx.WithHeaderInfo(header.Info{Time: tc.blockTime})
 			// now try to deduct
-			remove, err := tc.allow.Accept(ctx, tc.fee, []sdk.Msg{})
+			// Set environment to ctx
+			remove, err := tc.allow.Accept(context.WithValue(ctx, corecontext.EnvironmentContextKey, appmodule.Environment{
+				HeaderService: mockHeaderService{},
+				GasService:    mockGasService{},
+			}), tc.fee, []sdk.Msg{})
 			if !tc.accept {
 				require.Error(t, err)
 				return

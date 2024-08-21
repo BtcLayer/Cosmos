@@ -1,19 +1,24 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
-	"github.com/cockroachdb/errors"
+	cmtcfg "github.com/cometbft/cometbft/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"golang.org/x/exp/slices"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	signingv1beta1 "cosmossdk.io/api/cosmos/tx/signing/v1beta1"
+	corectx "cosmossdk.io/core/context"
+	"cosmossdk.io/log"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -167,7 +172,7 @@ func ReadPersistentCommandFlags(clientCtx Context, flagSet *pflag.FlagSet) (Cont
 				})))
 			}
 
-			grpcClient, err := grpc.Dial(grpcURI, dialOpts...)
+			grpcClient, err := grpc.NewClient(grpcURI, dialOpts...)
 			if err != nil {
 				return Context{}, err
 			}
@@ -278,14 +283,14 @@ func readTxCommandFlags(clientCtx Context, flagSet *pflag.FlagSet) (Context, err
 		from, _ := flagSet.GetString(flags.FlagFrom)
 		fromAddr, fromName, keyType, err := GetFromFields(clientCtx, clientCtx.Keyring, from)
 		if err != nil {
-			return clientCtx, err
+			return clientCtx, fmt.Errorf("failed to convert address field to address: %w", err)
 		}
 
 		clientCtx = clientCtx.WithFrom(from).WithFromAddress(fromAddr).WithFromName(fromName)
 
 		if keyType == keyring.TypeLedger && clientCtx.SignModeStr == flags.SignModeTextual {
 			if !slices.Contains(clientCtx.TxConfig.SignModeHandler().SupportedModes(), signingv1beta1.SignMode_SIGN_MODE_TEXTUAL) {
-				return clientCtx, fmt.Errorf("SIGN_MODE_TEXTUAL is not available")
+				return clientCtx, errors.New("SIGN_MODE_TEXTUAL is not available")
 			}
 		}
 
@@ -358,13 +363,54 @@ func GetClientContextFromCmd(cmd *cobra.Command) Context {
 // SetCmdClientContext sets a command's Context value to the provided argument.
 // If the context has not been set, set the given context as the default.
 func SetCmdClientContext(cmd *cobra.Command, clientCtx Context) error {
-	v := cmd.Context().Value(ClientContextKey)
-	if v == nil {
-		v = &clientCtx
+	cmdCtx := cmd.Context()
+	if cmdCtx == nil {
+		cmdCtx = context.Background()
 	}
 
-	clientCtxPtr := v.(*Context)
-	*clientCtxPtr = clientCtx
+	v := cmd.Context().Value(ClientContextKey)
+	if clientCtxPtr, ok := v.(*Context); ok {
+		*clientCtxPtr = clientCtx
+	} else {
+		cmd.SetContext(context.WithValue(cmdCtx, ClientContextKey, &clientCtx))
+	}
 
 	return nil
+}
+
+func GetViperFromCmd(cmd *cobra.Command) *viper.Viper {
+	value := cmd.Context().Value(corectx.ViperContextKey)
+	v, ok := value.(*viper.Viper)
+	if !ok {
+		return viper.New()
+	}
+	return v
+}
+
+func GetConfigFromCmd(cmd *cobra.Command) *cmtcfg.Config {
+	v := cmd.Context().Value(corectx.ViperContextKey)
+	viper, ok := v.(*viper.Viper)
+	if !ok {
+		return cmtcfg.DefaultConfig()
+	}
+	return GetConfigFromViper(viper)
+}
+
+func GetLoggerFromCmd(cmd *cobra.Command) log.Logger {
+	v := cmd.Context().Value(corectx.LoggerContextKey)
+	logger, ok := v.(log.Logger)
+	if !ok {
+		return log.NewLogger(cmd.OutOrStdout())
+	}
+	return logger
+}
+
+func GetConfigFromViper(v *viper.Viper) *cmtcfg.Config {
+	conf := cmtcfg.DefaultConfig()
+	err := v.Unmarshal(conf)
+	rootDir := v.GetString(flags.FlagHome)
+	if err != nil {
+		return cmtcfg.DefaultConfig().SetRoot(rootDir)
+	}
+	return conf.SetRoot(rootDir)
 }

@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
       - name: Create a file with all core Cosmos SDK pkgs
         run: go list ./... > pkgs.txt
@@ -52,9 +52,9 @@ jobs:
         part: ["00", "01", "02", "03"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: go.sum
@@ -86,9 +86,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: go.sum
@@ -117,9 +117,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: go.sum
@@ -143,6 +143,57 @@ jobs:
         with:
           name: "${{ github.sha }}-e2e-coverage"
           path: ./tests/e2e-profile.out
+
+  test-system:
+    needs: [tests, test-integration, test-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: |
+            simapp/go.sum
+            systemtest/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            **/*.go
+            go.mod
+            go.sum
+            **/go.mod
+            **/go.sum
+            **/Makefile
+            Makefile
+      - name: Install musl lib for simd (docker) binary
+        if: env.GIT_DIFF
+        run: |
+          sudo apt-get install -y musl
+      - name: system tests v1
+        if: env.GIT_DIFF
+        run: |
+          COSMOS_BUILD_OPTIONS=legacy make test-system
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: "testnet-setup"
+          path: ./systemtests/testnet/
+          retention-days: 3
+      - name: system tests v2
+        if: env.GIT_DIFF
+        run: |
+          make test-system
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: "testnet-setup"
+          path: ./systemtests/testnet/
+          retention-days: 3
 
   repo-analysis:
     runs-on: ubuntu-latest
@@ -190,44 +241,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-  liveness-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
-        with:
-          go-version: "1.21"
-          check-latest: true
-          cache: true
-          cache-dependency-path: go.sum
-      - uses: technote-space/get-diff-action@v6.1.2
-        id: git_diff
-        with:
-          PATTERNS: |
-            **/*.go
-            go.mod
-            go.sum
-            **/go.mod
-            **/go.sum
-            **/Makefile
-            Makefile
-      - name: start localnet
-        if: env.GIT_DIFF
-        run: |
-          make clean localnet-start
-      - name: test liveness
-        if: env.GIT_DIFF
-        run: |
-          ./contrib/localnet_liveness.sh 100 5 50 localhost
-
   test-sim-nondeterminism:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: go.sum
@@ -258,9 +278,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: client/v2/go.sum
@@ -289,9 +309,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: core/go.sum
@@ -315,12 +335,34 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: core/
+  test-coretesting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: core/testing/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            core/testing/**/*.go
+            core/testing/go.mod
+            core/testing/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd core/testing
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
 
   test-depinject:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.20"
           check-latest: true
@@ -349,7 +391,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.20"
           check-latest: true
@@ -380,7 +422,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.20"
           check-latest: true
@@ -407,13 +449,109 @@ jobs:
         with:
           projectBaseDir: math/
 
+  test-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.12"
+          cache: true
+          cache-dependency-path: schema/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            schema/**/*.go
+            schema/go.mod
+            schema/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd schema
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
+      - name: sonarcloud
+        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: schema/
+
+  test-schema-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+          cache-dependency-path: schema/testing/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            schema/testing/**/*.go
+            schema/testing/go.mod
+            schema/testing/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd schema
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic ./...
+      - name: sonarcloud
+        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: schema/testing/
+
+  test-indexer-postgres:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+          cache-dependency-path: indexer/postgres/tests/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            indexer/postgres/**/*.go
+            indexer/postgres/go.mod
+            indexer/postgres/go.sum
+            indexer/postgres/tests/go.mod
+            indexer/postgres/tests/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd indexer/postgres
+          go test -mod=readonly -timeout 30m -coverprofile=cov.out -covermode=atomic ./...
+          cd tests
+          go test -mod=readonly -timeout 30m -coverprofile=cov.out -covermode=atomic -coverpkg=cosmossdk.io/indexer/postgres ./...
+          cd ..
+          go run github.com/dylandreimerink/gocovmerge/cmd/gocovmerge@latest cov.out tests/cov.out > coverage.out
+      - name: sonarcloud
+        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: indexer/postgres/
+
   test-simapp:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: simapp/go.sum
@@ -428,28 +566,62 @@ jobs:
         if: env.GIT_DIFF
         run: |
           cd simapp
-          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
+          go test -mod=readonly -timeout 30m -tags='norace ledger test_ledger_mock' ./...
       - name: tests simapp v1
         if: env.GIT_DIFF
         run: |
           cd simapp
           go test -mod=readonly -timeout 30m -tags='app_v1 norace ledger test_ledger_mock' ./...
-      - name: sonarcloud
-        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  test-simapp-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          projectBaseDir: simapp/
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            **/*.go
+            go.mod
+            go.sum
+            **/go.mod
+            **/go.sum
+      - name: tests simapp
+        if: env.GIT_DIFF
+        run: |
+          cd simapp/v2
+          go test -mod=readonly -timeout 30m -tags='norace ledger test_ledger_mock' ./...
+      - name: simapp-v2-smoke-test
+        if: env.GIT_DIFF
+        run: |
+          COSMOS_BUILD_OPTIONS=v2 make install
+          ./scripts/init-simapp-v2.sh
+          simdv2 start &
+          SIMD_PID=$!
+          cnt=0
+          while ! simdv2 query block --type=height 5; do
+            cnt=$((cnt + 1))
+            if [ $cnt -gt 30 ]; then
+              kill -9 "$SIMD_PID"
+              exit 1
+            fi
+            sleep 1
+          done
+          kill -9 "$SIMD_PID"
 
   test-collections:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: collections/go.sum
@@ -478,9 +650,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: orm/go.sum
@@ -509,9 +681,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: tools/cosmovisor/go.sum
@@ -540,9 +712,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: tools/confix/go.sum
@@ -571,9 +743,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: tools/hubl/go.sum
@@ -604,7 +776,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.20"
           check-latest: true
@@ -631,11 +803,46 @@ jobs:
         with:
           projectBaseDir: store/
 
+  test-store-v2:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: store/v2/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            store/v2/**/*.go
+            store/v2/go.mod
+            store/v2/go.sum
+      - name: test & coverage report creation
+        if: env.GIT_DIFF
+        run: |
+          cd store/v2
+          nix develop ../.. -c go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock rocksdb' ./...
+      - name: sonarcloud
+        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: store/v2/
+
   test-log:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.20"
           check-latest: true
@@ -673,9 +880,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/accounts/go.sum
@@ -700,13 +907,59 @@ jobs:
         with:
           projectBaseDir: x/accounts/
 
+  test-x-accounts-lockup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: x/accounts/defaults/lockup/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            x/accounts/defaults/lockup/**/*.go
+            x/accounts/defaults/lockup/go.mod
+            x/accounts/defaults/lockup/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd x/accounts/defaults/lockup
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
+
+  test-x-accounts-multisig:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: x/accounts/multisig/lockup/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            x/accounts/defaults/multisig/**/*.go
+            x/accounts/defaults/multisig/go.mod
+            x/accounts/defaults/multisig/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd x/accounts/defaults/multisig
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
+
   test-x-tx:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/tx/go.sum
@@ -735,9 +988,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/nft/go.sum
@@ -766,9 +1019,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/circuit/go.sum
@@ -797,9 +1050,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/distribution/go.sum
@@ -828,9 +1081,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/protocolpool/go.sum
@@ -859,9 +1112,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/feegrant/go.sum
@@ -890,9 +1143,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/evidence/go.sum
@@ -920,9 +1173,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/params/go.sum
@@ -950,9 +1203,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/upgrade/go.sum
@@ -980,9 +1233,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/group/go.sum
@@ -1010,9 +1263,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/gov/go.sum
@@ -1041,9 +1294,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/slashing/go.sum
@@ -1072,9 +1325,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/staking/go.sum
@@ -1103,9 +1356,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/auth/go.sum
@@ -1134,9 +1387,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/authz/go.sum
@@ -1165,9 +1418,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/bank/go.sum
@@ -1196,9 +1449,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.23"
           check-latest: true
           cache: true
           cache-dependency-path: x/mint/go.sum
@@ -1222,3 +1475,65 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: x/mint/
+
+  test-x-epochs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: x/epochs/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            x/epochs/**/*.go
+            x/epochs/go.mod
+            x/epochs/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd x/epochs
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
+      - name: sonarcloud
+        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: x/epochs/
+
+  test-x-consensus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          check-latest: true
+          cache: true
+          cache-dependency-path: x/consensus/go.sum
+      - uses: technote-space/get-diff-action@v6.1.2
+        id: git_diff
+        with:
+          PATTERNS: |
+            x/consensus/**/*.go
+            x/consensus/go.mod
+            x/consensus/go.sum
+      - name: tests
+        if: env.GIT_DIFF
+        run: |
+          cd x/consensus
+          go test -mod=readonly -timeout 30m -coverprofile=coverage.out -covermode=atomic -tags='norace ledger test_ledger_mock' ./...
+      - name: sonarcloud
+        if: ${{ env.GIT_DIFF && !github.event.pull_request.draft && env.SONAR_TOKEN != null }}
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: x/consensus/

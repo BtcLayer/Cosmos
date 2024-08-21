@@ -1,7 +1,12 @@
 package autocli
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -11,18 +16,22 @@ import (
 	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	"cosmossdk.io/client/v2/internal/testpb"
+
+	"github.com/cosmos/cosmos-sdk/client"
 )
 
-var buildModuleMsgCommand = func(moduleName string, b *Builder) (*cobra.Command, error) {
-	cmd := topLevelCmd(moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
-	err := b.AddMsgServiceCommands(cmd, bankAutoCLI)
+var buildModuleMsgCommand = func(moduleName string, f *fixture) (*cobra.Command, error) {
+	ctx := context.WithValue(context.Background(), client.ClientContextKey, &f.clientCtx)
+	cmd := topLevelCmd(ctx, moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
+	err := f.b.AddMsgServiceCommands(cmd, bankAutoCLI)
 	return cmd, err
 }
 
-func buildCustomModuleMsgCommand(cmdDescriptor *autocliv1.ServiceCommandDescriptor) func(moduleName string, b *Builder) (*cobra.Command, error) {
-	return func(moduleName string, b *Builder) (*cobra.Command, error) {
-		cmd := topLevelCmd(moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
-		err := b.AddMsgServiceCommands(cmd, cmdDescriptor)
+func buildCustomModuleMsgCommand(cmdDescriptor *autocliv1.ServiceCommandDescriptor) func(moduleName string, f *fixture) (*cobra.Command, error) {
+	return func(moduleName string, f *fixture) (*cobra.Command, error) {
+		ctx := context.WithValue(context.Background(), client.ClientContextKey, &f.clientCtx)
+		cmd := topLevelCmd(ctx, moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
+		err := f.b.AddMsgServiceCommands(cmd, cmdDescriptor)
 		return cmd, err
 	}
 }
@@ -42,15 +51,34 @@ var bankAutoCLI = &autocliv1.ServiceCommandDescriptor{
 
 func TestMsg(t *testing.T) {
 	fixture := initFixture(t)
-	out, err := runCmd(fixture.conn, fixture.b, buildModuleMsgCommand, "send",
+	out, err := runCmd(fixture, buildModuleMsgCommand, "send",
 		"cosmos1y74p8wyy4enfhfn342njve6cjmj5c8dtl6emdk", "cosmos1y74p8wyy4enfhfn342njve6cjmj5c8dtl6emdk", "1foo",
 		"--generate-only",
 		"--output", "json",
 	)
 	assert.NilError(t, err)
-	golden.Assert(t, out.String(), "msg-output.golden")
+	assertNormalizedJSONEqual(t, out.Bytes(), goldenLoad(t, "msg-output.golden"))
 
-	out, err = runCmd(fixture.conn, fixture.b, buildCustomModuleMsgCommand(&autocliv1.ServiceCommandDescriptor{
+	out, err = runCmd(fixture, buildCustomModuleMsgCommand(&autocliv1.ServiceCommandDescriptor{
+		Service: bankv1beta1.Msg_ServiceDesc.ServiceName,
+		RpcCommandOptions: []*autocliv1.RpcCommandOptions{
+			{
+				RpcMethod:      "Send",
+				Use:            "send [from_key_or_address] [to_address] [amount] [flags]",
+				Short:          "Send coins from one account to another",
+				PositionalArgs: []*autocliv1.PositionalArgDescriptor{{ProtoField: "from_address"}, {ProtoField: "to_address"}, {ProtoField: "amount"}},
+			},
+		},
+		EnhanceCustomCommand: true,
+	}), "send",
+		"cosmos1y74p8wyy4enfhfn342njve6cjmj5c8dtl6emdk", "cosmos1y74p8wyy4enfhfn342njve6cjmj5c8dtl6emdk", "1foo",
+		"--generate-only",
+		"--output", "json",
+	)
+	assert.NilError(t, err)
+	assertNormalizedJSONEqual(t, out.Bytes(), goldenLoad(t, "msg-output.golden"))
+
+	out, err = runCmd(fixture, buildCustomModuleMsgCommand(&autocliv1.ServiceCommandDescriptor{
 		Service: bankv1beta1.Msg_ServiceDesc.ServiceName,
 		RpcCommandOptions: []*autocliv1.RpcCommandOptions{
 			{
@@ -69,9 +97,9 @@ func TestMsg(t *testing.T) {
 		"--output", "json",
 	)
 	assert.NilError(t, err)
-	golden.Assert(t, out.String(), "msg-output.golden")
+	assertNormalizedJSONEqual(t, out.Bytes(), goldenLoad(t, "msg-output.golden"))
 
-	out, err = runCmd(fixture.conn, fixture.b, buildCustomModuleMsgCommand(&autocliv1.ServiceCommandDescriptor{
+	out, err = runCmd(fixture, buildCustomModuleMsgCommand(&autocliv1.ServiceCommandDescriptor{
 		Service: bankv1beta1.Msg_ServiceDesc.ServiceName,
 		RpcCommandOptions: []*autocliv1.RpcCommandOptions{
 			{
@@ -92,18 +120,44 @@ func TestMsg(t *testing.T) {
 		"--output", "json",
 	)
 	assert.NilError(t, err)
-	golden.Assert(t, out.String(), "msg-output.golden")
+	assertNormalizedJSONEqual(t, out.Bytes(), goldenLoad(t, "msg-output.golden"))
+}
+
+func goldenLoad(t *testing.T, filename string) []byte {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join("testdata", filename))
+	assert.NilError(t, err)
+	return content
+}
+
+func assertNormalizedJSONEqual(t *testing.T, expected, actual []byte) {
+	t.Helper()
+	normalizedExpected, err := normalizeJSON(expected)
+	assert.NilError(t, err)
+	normalizedActual, err := normalizeJSON(actual)
+	assert.NilError(t, err)
+	assert.Equal(t, string(normalizedExpected), string(normalizedActual))
+}
+
+// normalizeJSON normalizes the JSON content by removing unnecessary white spaces and newlines.
+func normalizeJSON(content []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	err := json.Compact(&buf, content)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func TestMsgOptionsError(t *testing.T) {
 	fixture := initFixture(t)
 
-	_, err := runCmd(fixture.conn, fixture.b, buildModuleMsgCommand,
+	_, err := runCmd(fixture, buildModuleMsgCommand,
 		"send", "5",
 	)
 	assert.ErrorContains(t, err, "accepts 3 arg(s)")
 
-	_, err = runCmd(fixture.conn, fixture.b, buildModuleMsgCommand,
+	_, err = runCmd(fixture, buildModuleMsgCommand,
 		"send", "foo", "bar", "invalid",
 	)
 	assert.ErrorContains(t, err, "invalid argument")
@@ -112,11 +166,11 @@ func TestMsgOptionsError(t *testing.T) {
 func TestHelpMsg(t *testing.T) {
 	fixture := initFixture(t)
 
-	out, err := runCmd(fixture.conn, fixture.b, buildModuleMsgCommand, "-h")
+	out, err := runCmd(fixture, buildModuleMsgCommand, "-h")
 	assert.NilError(t, err)
 	golden.Assert(t, out.String(), "help-toplevel-msg.golden")
 
-	out, err = runCmd(fixture.conn, fixture.b, buildModuleMsgCommand, "send", "-h")
+	out, err = runCmd(fixture, buildModuleMsgCommand, "send", "-h")
 	assert.NilError(t, err)
 	golden.Assert(t, out.String(), "help-echo-msg.golden")
 }
@@ -135,7 +189,7 @@ func TestBuildCustomMsgCommand(t *testing.T) {
 		},
 	}
 
-	cmd, err := b.BuildMsgCommand(appOptions, map[string]*cobra.Command{
+	cmd, err := b.BuildMsgCommand(context.Background(), appOptions, map[string]*cobra.Command{
 		"test": {Use: "test", Run: func(cmd *cobra.Command, args []string) {
 			customCommandCalled = true
 		}},
@@ -153,7 +207,7 @@ func TestNotFoundErrorsMsg(t *testing.T) {
 	b.AddTxConnFlags = nil
 
 	buildModuleMsgCommand := func(moduleName string, cmdDescriptor *autocliv1.ServiceCommandDescriptor) (*cobra.Command, error) {
-		cmd := topLevelCmd(moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
+		cmd := topLevelCmd(context.Background(), moduleName, fmt.Sprintf("Transactions commands for the %s module", moduleName))
 
 		err := b.AddMsgServiceCommands(cmd, cmdDescriptor)
 		return cmd, err

@@ -15,7 +15,7 @@ utilities.
 
 It is vital that the root command of an application uses `PersistentPreRun()` cobra command
 property for executing the command, so all child commands have access to the server and client contexts.
-These contexts are set as their default values initially and maybe modified,
+These contexts are set as their default values initially and may be modified,
 scoped to the command, in their respective `PersistentPreRun()` functions. Note that
 the `client.Context` is typically pre-populated with "default" values that may be
 useful for all commands to inherit and override if necessary.
@@ -74,26 +74,12 @@ the viper literal and passed to the application construction.
 Example:
 
 ```go
-func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer, appOpts server.AppOptions) server.Application {
-	var cache sdk.MultiStorePersistentCache
-
-	if cast.ToBool(appOpts.Get(server.FlagInterBlockCache)) {
-		cache = store.NewCommitKVStoreCacheManager()
-	}
-
-	pruningOpts, err := server.GetPruningOptionsFromFlags(appOpts)
-	if err != nil {
-		panic(err)
-	}
-
+func newApp(logger log.Logger, db dbm.DB, traceStore io.Writer, appOpts servertypes.AppOptions) servertypes.Application {
+	baseappOptions := server.DefaultBaseappOptions(appOpts)
 	return simapp.NewSimApp(
 		logger, db, traceStore, true,
-		baseapp.SetPruning(pruningOpts),
-		baseapp.SetMinGasPrices(cast.ToString(appOpts.Get(server.FlagMinGasPrices))),
-		baseapp.SetHaltHeight(cast.ToUint64(appOpts.Get(server.FlagHaltHeight))),
-		baseapp.SetHaltTime(cast.ToUint64(appOpts.Get(server.FlagHaltTime))),
-		baseapp.SetInterBlockCache(cache),
-		baseapp.SetTrace(cast.ToBool(appOpts.Get(server.FlagTrace))),
+		appOpts,
+		baseappOptions...,
 	)
 }
 ```

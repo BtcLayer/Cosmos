@@ -11,6 +11,7 @@ import (
 	"cosmossdk.io/x/bank/testutil"
 	"cosmossdk.io/x/bank/types"
 
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -19,6 +20,9 @@ import (
 func (suite *KeeperTestSuite) TestQueryBalance() {
 	ctx, queryClient := suite.ctx, suite.queryClient
 	_, _, addr := testdata.KeyTestPubAddr()
+
+	addrStr, err := codectestutil.CodecOptions{}.GetAddressCodec().BytesToString(addr)
+	suite.Require().NoError(err)
 
 	origCoins := sdk.NewCoins(newBarCoin(30))
 	suite.mockFundAccount(addr)
@@ -38,13 +42,13 @@ func (suite *KeeperTestSuite) TestQueryBalance() {
 		},
 		{
 			"invalid denom",
-			types.NewQueryBalanceRequest(addr, "0000"),
+			types.NewQueryBalanceRequest(addrStr, "0000"),
 			"invalid denom",
 			nil,
 		},
 		{
 			"empty address",
-			types.NewQueryBalanceRequest(sdk.AccAddress{}, barDenom),
+			types.NewQueryBalanceRequest("", barDenom),
 			"empty address string is not allowed",
 			nil,
 		},
@@ -56,13 +60,13 @@ func (suite *KeeperTestSuite) TestQueryBalance() {
 		},
 		{
 			"query missing denom",
-			&types.QueryBalanceRequest{Address: addr.String()},
+			&types.QueryBalanceRequest{Address: addrStr},
 			"invalid denom",
 			nil,
 		},
 		{
 			"valid query empty result",
-			types.NewQueryBalanceRequest(addr, fooDenom),
+			types.NewQueryBalanceRequest(addrStr, fooDenom),
 			"",
 			func(res *types.QueryBalanceResponse) {
 				suite.True(res.Balance.IsZero())
@@ -70,7 +74,7 @@ func (suite *KeeperTestSuite) TestQueryBalance() {
 		},
 		{
 			"valid query",
-			types.NewQueryBalanceRequest(addr, barDenom),
+			types.NewQueryBalanceRequest(addrStr, barDenom),
 			"",
 			func(res *types.QueryBalanceResponse) {
 				suite.True(res.Balance.IsEqual(newBarCoin(30)))
@@ -103,12 +107,15 @@ func (suite *KeeperTestSuite) TestQueryAllBalances() {
 	_, err := queryClient.AllBalances(gocontext.Background(), &types.QueryAllBalancesRequest{})
 	suite.Require().Error(err)
 
+	addrStr, err := codectestutil.CodecOptions{}.GetAddressCodec().BytesToString(addr)
+	suite.Require().NoError(err)
+
 	pageReq := &query.PageRequest{
 		Key:        nil,
 		Limit:      1,
 		CountTotal: false,
 	}
-	req := types.NewQueryAllBalancesRequest(addr, pageReq, false)
+	req := types.NewQueryAllBalancesRequest(addrStr, pageReq, false)
 	res, err := queryClient.AllBalances(gocontext.Background(), req)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(res)
@@ -137,7 +144,7 @@ func (suite *KeeperTestSuite) TestQueryAllBalances() {
 		Limit:      1,
 		CountTotal: true,
 	}
-	req = types.NewQueryAllBalancesRequest(addr, pageReq, false)
+	req = types.NewQueryAllBalancesRequest(addrStr, pageReq, false)
 	res, err = queryClient.AllBalances(gocontext.Background(), req)
 	suite.Require().NoError(err)
 	suite.Equal(res.Balances.Len(), 1)
@@ -151,7 +158,7 @@ func (suite *KeeperTestSuite) TestQueryAllBalances() {
 		Limit:      1,
 		CountTotal: true,
 	}
-	req = types.NewQueryAllBalancesRequest(addr, pageReq, false)
+	req = types.NewQueryAllBalancesRequest(addrStr, pageReq, false)
 	res, err = queryClient.AllBalances(gocontext.Background(), req)
 	suite.Require().NoError(err)
 	suite.Equal(res.Balances.Len(), 1)
@@ -163,7 +170,7 @@ func (suite *KeeperTestSuite) TestQueryAllBalances() {
 		Limit:      1,
 		CountTotal: true,
 	}
-	req = types.NewQueryAllBalancesRequest(addr, pageReq, true)
+	req = types.NewQueryAllBalancesRequest(addrStr, pageReq, true)
 	res, err = queryClient.AllBalances(gocontext.Background(), req)
 	suite.Require().NoError(err)
 	suite.Equal(res.Balances.Len(), 1)
@@ -173,12 +180,14 @@ func (suite *KeeperTestSuite) TestQueryAllBalances() {
 
 func (suite *KeeperTestSuite) TestSpendableBalances() {
 	_, _, addr := testdata.KeyTestPubAddr()
+	addrStr, err := codectestutil.CodecOptions{}.GetAddressCodec().BytesToString(addr)
+	suite.Require().NoError(err)
 
 	ctx := sdk.UnwrapSDKContext(suite.ctx)
 	ctx = ctx.WithHeaderInfo(header.Info{Time: time.Now()})
 	queryClient := suite.mockQueryClient(ctx)
 
-	_, err := queryClient.SpendableBalances(ctx, &types.QuerySpendableBalancesRequest{})
+	_, err = queryClient.SpendableBalances(ctx, &types.QuerySpendableBalancesRequest{})
 	suite.Require().Error(err)
 
 	pageReq := &query.PageRequest{
@@ -186,7 +195,7 @@ func (suite *KeeperTestSuite) TestSpendableBalances() {
 		Limit:      2,
 		CountTotal: false,
 	}
-	req := types.NewQuerySpendableBalancesRequest(addr, pageReq)
+	req := types.NewQuerySpendableBalancesRequest(addrStr, pageReq)
 	acc := authtypes.NewBaseAccountWithAddress(addr)
 
 	suite.mockSpendableCoins(ctx, acc)
@@ -234,7 +243,10 @@ func (suite *KeeperTestSuite) TestSpendableBalanceByDenom() {
 	_, err := queryClient.SpendableBalanceByDenom(ctx, &types.QuerySpendableBalanceByDenomRequest{})
 	suite.Require().Error(err)
 
-	req := types.NewQuerySpendableBalanceByDenomRequest(addr, fooDenom)
+	addrStr, err := suite.authKeeper.AddressCodec().BytesToString(addr)
+	suite.Require().NoError(err)
+
+	req := types.NewQuerySpendableBalanceByDenomRequest(addrStr, fooDenom)
 	acc := authtypes.NewBaseAccountWithAddress(addr)
 
 	suite.mockSpendableCoins(ctx, acc)
@@ -805,4 +817,112 @@ func (suite *KeeperTestSuite) TestQuerySendEnabled() {
 			suite.Require().Equal(tc.exp, resp)
 		})
 	}
+}
+
+func (suite *KeeperTestSuite) TestGRPCDenomOwnersByQuery() {
+	ctx := suite.ctx
+
+	keeper := suite.bankKeeper
+
+	suite.mockMintCoins(mintAcc)
+	suite.Require().NoError(keeper.MintCoins(ctx, types.MintModuleName, initCoins))
+	denom := "ibc/123123213123"
+	newCoins := sdk.NewCoins(sdk.NewCoin(denom, initTokens))
+	suite.mockMintCoins(mintAcc)
+	suite.Require().NoError(keeper.MintCoins(ctx, types.MintModuleName, newCoins))
+
+	for i := 0; i < 10; i++ {
+		addr := sdk.AccAddress(fmt.Sprintf("account-%d", i))
+
+		bal := sdk.NewCoins(sdk.NewCoin(
+			sdk.DefaultBondDenom,
+			sdk.TokensFromConsensusPower(initialPower/10, sdk.DefaultPowerReduction),
+		))
+		suite.mockSendCoinsFromModuleToAccount(mintAcc, addr)
+		suite.Require().NoError(keeper.SendCoinsFromModuleToAccount(ctx, types.MintModuleName, addr, bal))
+	}
+
+	testCases := map[string]struct {
+		req      *types.QueryDenomOwnersByQueryRequest
+		expPass  bool
+		numAddrs int
+		hasNext  bool
+		total    uint64
+	}{
+		"empty request": {
+			req:     &types.QueryDenomOwnersByQueryRequest{},
+			expPass: false,
+		},
+		"invalid denom": {
+			req: &types.QueryDenomOwnersByQueryRequest{
+				Denom: "foo",
+			},
+			expPass:  true,
+			numAddrs: 0,
+			hasNext:  false,
+			total:    0,
+		},
+		"valid request - page 1": {
+			req: &types.QueryDenomOwnersByQueryRequest{
+				Denom: sdk.DefaultBondDenom,
+				Pagination: &query.PageRequest{
+					Limit:      6,
+					CountTotal: true,
+				},
+			},
+			expPass:  true,
+			numAddrs: 6,
+			hasNext:  true,
+			total:    10,
+		},
+		"valid request - page 2": {
+			req: &types.QueryDenomOwnersByQueryRequest{
+				Denom: sdk.DefaultBondDenom,
+				Pagination: &query.PageRequest{
+					Offset:     6,
+					Limit:      10,
+					CountTotal: true,
+				},
+			},
+			expPass:  true,
+			numAddrs: 4,
+			hasNext:  false,
+			total:    10,
+		},
+		"valid request for query": {
+			req: &types.QueryDenomOwnersByQueryRequest{
+				Denom: denom,
+				Pagination: &query.PageRequest{
+					Limit:      6,
+					CountTotal: true,
+				},
+			},
+			expPass:  true,
+			numAddrs: 1,
+			hasNext:  false,
+			total:    1,
+		},
+	}
+
+	for name, tc := range testCases {
+		suite.Run(name, func() {
+			resp, err := suite.queryClient.DenomOwnersByQuery(gocontext.Background(), tc.req)
+			if tc.expPass {
+				suite.NoError(err)
+				suite.NotNil(resp)
+				suite.Len(resp.DenomOwners, tc.numAddrs)
+				suite.Equal(tc.total, resp.Pagination.Total)
+
+				if tc.hasNext {
+					suite.NotNil(resp.Pagination.NextKey)
+				} else {
+					suite.Nil(resp.Pagination.NextKey)
+				}
+			} else {
+				suite.Require().Error(err)
+			}
+		})
+	}
+
+	suite.Require().True(true)
 }

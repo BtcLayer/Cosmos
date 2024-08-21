@@ -29,7 +29,6 @@ type PreprocessTxFn func(chainID string, key keyring.KeyType, tx TxBuilder) erro
 // Context implements a typical context created in SDK modules for transaction
 // handling and queries.
 type Context struct {
-	FromAddress           sdk.AccAddress
 	Client                CometRPC
 	GRPCClient            *grpc.ClientConn
 	ChainID               string
@@ -44,23 +43,28 @@ type Context struct {
 	OutputFormat          string
 	Height                int64
 	HomeDir               string
-	From                  string
-	BroadcastMode         string
-	FromName              string
-	SignModeStr           string
-	UseLedger             bool
-	Simulate              bool
-	GenerateOnly          bool
-	Offline               bool
-	SkipConfirm           bool
-	TxConfig              TxConfig
-	AccountRetriever      AccountRetriever
-	NodeURI               string
-	FeePayer              sdk.AccAddress
-	FeeGranter            sdk.AccAddress
-	Viper                 *viper.Viper
-	LedgerHasProtobuf     bool
-	PreprocessTxHook      PreprocessTxFn
+	// From is a name or an address of a keyring account used to set FromName and FromAddress fields.
+	// Should be set by the "from" flag.
+	From string
+	// Name of a keyring account used to sign transactions.
+	FromName string
+	// Address of a keyring account used to sign transactions.
+	FromAddress       sdk.AccAddress
+	BroadcastMode     string
+	SignModeStr       string
+	UseLedger         bool
+	Simulate          bool
+	GenerateOnly      bool
+	Offline           bool
+	SkipConfirm       bool
+	TxConfig          TxConfig
+	AccountRetriever  AccountRetriever
+	NodeURI           string
+	FeePayer          sdk.AccAddress
+	FeeGranter        sdk.AccAddress
+	Viper             *viper.Viper
+	LedgerHasProtobuf bool
+	PreprocessTxHook  PreprocessTxFn
 
 	// IsAux is true when the signer is an auxiliary signer (e.g. the tipper).
 	IsAux bool
@@ -75,6 +79,10 @@ type Context struct {
 	AddressCodec          address.Codec
 	ValidatorAddressCodec address.Codec
 	ConsensusAddressCodec address.Codec
+
+	// Bech32 address prefixes.
+	AddressPrefix   string
+	ValidatorPrefix string
 }
 
 // WithCmdContext returns a copy of the context with an updated context.Context,
@@ -99,7 +107,7 @@ func (ctx Context) WithKeyringOptions(opts ...keyring.Option) Context {
 // WithInput returns a copy of the context with an updated input.
 func (ctx Context) WithInput(r io.Reader) Context {
 	// convert to a bufio.Reader to have a shared buffer between the keyring and the
-	// the Commands, ensuring a read from one advance the read pointer for the other.
+	// Commands, ensuring a read from one advance the read pointer for the other.
 	// see https://github.com/cosmos/cosmos-sdk/issues/9566.
 	ctx.Input = bufio.NewReader(r)
 	return ctx
@@ -301,7 +309,7 @@ func (ctx Context) WithAux(isAux bool) Context {
 	return ctx
 }
 
-// WithLedgerHasProto returns the context with the provided boolean value, indicating
+// WithLedgerHasProtobuf returns the context with the provided boolean value, indicating
 // whether the target Ledger application can support Protobuf payloads.
 func (ctx Context) WithLedgerHasProtobuf(val bool) Context {
 	ctx.LedgerHasProtobuf = val
@@ -330,6 +338,18 @@ func (ctx Context) WithValidatorAddressCodec(validatorAddressCodec address.Codec
 // WithConsensusAddressCodec returns the context with the provided consensus address codec.
 func (ctx Context) WithConsensusAddressCodec(consensusAddressCodec address.Codec) Context {
 	ctx.ConsensusAddressCodec = consensusAddressCodec
+	return ctx
+}
+
+// WithAddressPrefix returns the context with the provided address bech32 prefix.
+func (ctx Context) WithAddressPrefix(addressPrefix string) Context {
+	ctx.AddressPrefix = addressPrefix
+	return ctx
+}
+
+// WithValidatorPrefix returns the context with the provided validator bech32 prefix.
+func (ctx Context) WithValidatorPrefix(validatorPrefix string) Context {
+	ctx.ValidatorPrefix = validatorPrefix
 	return ctx
 }
 

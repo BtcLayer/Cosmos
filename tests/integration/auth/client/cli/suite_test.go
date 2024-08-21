@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	abci "github.com/cometbft/cometbft/abci/types"
+	abci "github.com/cometbft/cometbft/api/cometbft/abci/v1"
 	rpcclientmock "github.com/cometbft/cometbft/rpc/client/mock"
 	"github.com/stretchr/testify/suite"
 
@@ -25,6 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	kmultisig "github.com/cosmos/cosmos-sdk/crypto/keys/multisig"
@@ -56,7 +57,7 @@ func TestCLITestSuite(t *testing.T) {
 }
 
 func (s *CLITestSuite) SetupSuite() {
-	s.encCfg = testutilmod.MakeTestEncodingConfig(auth.AppModuleBasic{}, bank.AppModuleBasic{}, gov.AppModuleBasic{})
+	s.encCfg = testutilmod.MakeTestEncodingConfig(codectestutil.CodecOptions{}, auth.AppModule{}, bank.AppModule{}, gov.AppModule{})
 	s.kr = keyring.NewInMemory(s.encCfg.Codec)
 	s.baseCtx = client.Context{}.
 		WithKeyring(s.kr).
@@ -72,7 +73,7 @@ func (s *CLITestSuite) SetupSuite() {
 
 	ctxGen := func() client.Context {
 		bz, _ := s.encCfg.Codec.Marshal(&sdk.TxResponse{})
-		c := clitestutil.NewMockCometRPC(abci.ResponseQuery{
+		c := clitestutil.NewMockCometRPC(abci.QueryResponse{
 			Value: bz,
 		})
 		return s.baseCtx.WithClient(c)
@@ -169,6 +170,66 @@ func (s *CLITestSuite) TestCLISignBatch() {
 	// sign-batch file - offline and account-number is set but sequence is not set
 	_, err = authtestutil.TxSignBatchExec(s.clientCtx, s.val, outputFile.Name(), fmt.Sprintf("--%s=%s", flags.FlagChainID, s.clientCtx.ChainID), fmt.Sprintf("--%s=%s", flags.FlagAccountNumber, "1"), "--offline")
 	s.Require().EqualError(err, "required flag(s) \"sequence\" not set")
+}
+
+func (s *CLITestSuite) TestCLISignBatchTotalFees() {
+	txCfg := s.clientCtx.TxConfig
+	s.clientCtx.HomeDir = strings.Replace(s.clientCtx.HomeDir, "simd", "simcli", 1)
+
+	testCases := []struct {
+		name            string
+		args            []string
+		numTransactions int
+		denom           string
+	}{
+		{
+			"Offline batch-sign one transaction",
+			[]string{"--offline", "--account-number", "1", "--sequence", "1", "--append"},
+			1,
+			"stake",
+		},
+		{
+			"Offline batch-sign two transactions",
+			[]string{"--offline", "--account-number", "1", "--sequence", "1", "--append"},
+			2,
+			"stake",
+		},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Create multiple transactions and write them to separate files
+			sendTokens := sdk.NewCoin(tc.denom, sdk.TokensFromConsensusPower(10, sdk.DefaultPowerReduction))
+			expectedBatchedTotalFee := int64(0)
+			txFiles := make([]string, tc.numTransactions)
+			for i := 0; i < tc.numTransactions; i++ {
+				tx, err := s.createBankMsg(s.clientCtx, s.val,
+					sdk.NewCoins(sendTokens), clitestutil.TestTxConfig{GenOnly: true})
+				s.Require().NoError(err)
+				txFile := testutil.WriteToNewTempFile(s.T(), tx.String()+"\n")
+				txFiles[i] = txFile.Name()
+
+				unsignedTx, err := txCfg.TxJSONDecoder()(tx.Bytes())
+				s.Require().NoError(err)
+				txBuilder, err := txCfg.WrapTxBuilder(unsignedTx)
+				s.Require().NoError(err)
+				expectedBatchedTotalFee += txBuilder.GetTx().GetFee().AmountOf(tc.denom).Int64()
+				err = txFile.Close()
+				s.NoError(err)
+			}
+
+			// Test batch sign
+			batchSignArgs := append([]string{fmt.Sprintf("--from=%s", s.val.String())}, append(txFiles, tc.args...)...)
+			signedTx, err := clitestutil.ExecTestCLICmd(s.clientCtx, authcli.GetSignBatchCommand(), batchSignArgs)
+			s.Require().NoError(err)
+			signedFinalTx, err := txCfg.TxJSONDecoder()(signedTx.Bytes())
+			s.Require().NoError(err)
+			txBuilder, err := txCfg.WrapTxBuilder(signedFinalTx)
+			s.Require().NoError(err)
+			finalTotalFee := txBuilder.GetTx().GetFee()
+			s.Require().Equal(expectedBatchedTotalFee, finalTotalFee.AmountOf(tc.denom).Int64())
+		})
+	}
 }
 
 func (s *CLITestSuite) TestCLIQueryTxCmdByHash() {
@@ -781,11 +842,8 @@ func (s *CLITestSuite) TestGetBroadcastCommandWithoutOfflineFlag() {
 	// Create new file with tx
 	builder := txCfg.NewTxBuilder()
 	builder.SetGasLimit(200000)
-	from, err := s.ac.StringToBytes("cosmos1cxlt8kznps92fwu3j6npahx4mjfutydyene2qw")
-	s.Require().NoError(err)
-	to, err := s.ac.StringToBytes("cosmos1cxlt8kznps92fwu3j6npahx4mjfutydyene2qw")
-	s.Require().NoError(err)
-	err = builder.SetMsgs(banktypes.NewMsgSend(from, to, sdk.Coins{sdk.NewInt64Coin("stake", 10000)}))
+
+	err := builder.SetMsgs(banktypes.NewMsgSend("cosmos1cxlt8kznps92fwu3j6npahx4mjfutydyene2qw", "cosmos1cxlt8kznps92fwu3j6npahx4mjfutydyene2qw", sdk.Coins{sdk.NewInt64Coin("stake", 10000)}))
 	s.Require().NoError(err)
 	txContents, err := txCfg.TxJSONEncoder()(builder.GetTx())
 	s.Require().NoError(err)
@@ -805,12 +863,15 @@ func (s *CLITestSuite) TestGetBroadcastCommandWithoutOfflineFlag() {
 func (s *CLITestSuite) TestTxWithoutPublicKey() {
 	txCfg := s.clientCtx.TxConfig
 
+	valStr, err := s.ac.BytesToString(s.val)
+	s.Require().NoError(err)
+
 	// Create a txBuilder with an unsigned tx.
 	txBuilder := txCfg.NewTxBuilder()
-	msg := banktypes.NewMsgSend(s.val, s.val, sdk.NewCoins(
+	msg := banktypes.NewMsgSend(valStr, valStr, sdk.NewCoins(
 		sdk.NewCoin("Stake", math.NewInt(10)),
 	))
-	err := txBuilder.SetMsgs(msg)
+	err = txBuilder.SetMsgs(msg)
 	s.Require().NoError(err)
 	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("Stake", math.NewInt(150))))
 	txBuilder.SetGasLimit(testdata.NewTestGasLimit())
@@ -858,14 +919,21 @@ func (s *CLITestSuite) TestSignWithMultiSignersAminoJSON() {
 	val1Coin := sdk.NewCoin("test2token", math.NewInt(10))
 	_, _, addr1 := testdata.KeyTestPubAddr()
 
+	valStr, err := s.ac.BytesToString(val0)
+	s.Require().NoError(err)
+	val1Str, err := s.ac.BytesToString(val1)
+	s.Require().NoError(err)
+
+	addrStr, err := s.ac.BytesToString(addr1)
+	s.Require().NoError(err)
 	// Creating a tx with 2 msgs from 2 signers: val0 and val1.
 	// The validators need to sign with SIGN_MODE_LEGACY_AMINO_JSON,
 	// because DIRECT doesn't support multi signers via the CLI.
 	// Since we use amino, we don't need to pre-populate signer_infos.
 	txBuilder := s.clientCtx.TxConfig.NewTxBuilder()
-	err := txBuilder.SetMsgs(
-		banktypes.NewMsgSend(val0, addr1, sdk.NewCoins(val0Coin)),
-		banktypes.NewMsgSend(val1, addr1, sdk.NewCoins(val1Coin)),
+	err = txBuilder.SetMsgs(
+		banktypes.NewMsgSend(valStr, addrStr, sdk.NewCoins(val0Coin)),
+		banktypes.NewMsgSend(val1Str, addrStr, sdk.NewCoins(val1Coin)),
 	)
 	s.Require().NoError(err)
 	txBuilder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(10))))
@@ -916,6 +984,7 @@ func (s *CLITestSuite) TestSignWithMultiSignersAminoJSON() {
 }
 
 func (s *CLITestSuite) TestAuxSigner() {
+	s.T().Skip("re-enable this when we bring back sign mode aux client testing")
 	val0Coin := sdk.NewCoin("testtoken", math.NewInt(10))
 
 	testCases := []struct {

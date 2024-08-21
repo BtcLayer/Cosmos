@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	zerolog.InterfaceMarshalFunc = func(i interface{}) ([]byte, error) {
+	zerolog.InterfaceMarshalFunc = func(i any) ([]byte, error) {
 		switch v := i.(type) {
 		case json.Marshaler:
 			return json.Marshal(i)
@@ -30,15 +30,21 @@ func init() {
 const ModuleKey = "module"
 
 // ContextKey is used to store the logger in the context.
-var ContextKey struct{}
+var ContextKey contextKey
+
+type contextKey struct{}
 
 // Logger is the Cosmos SDK logger interface.
-// It maintains as much backward compatibility with the CometBFT logger as possible.
-// All functionalities of the logger are available through the Impl() method.
+// It extends cosmossdk.io/core/log.Logger to return a child logger.
+// Use cosmossdk.io/core/log.Logger instead in modules.
 type Logger interface {
 	// Info takes a message and a set of key/value pairs and logs with level INFO.
 	// The key of the tuple must be a string.
 	Info(msg string, keyVals ...any)
+
+	// Warn takes a message and a set of key/value pairs and logs with level WARN.
+	// The key of the tuple must be a string.
+	Warn(msg string, keyVals ...any)
 
 	// Error takes a message and a set of key/value pairs and logs with level ERR.
 	// The key of the tuple must be a string.
@@ -57,6 +63,22 @@ type Logger interface {
 	Impl() any
 }
 
+// WithJSONMarshal configures zerolog global json encoding.
+func WithJSONMarshal(marshaler func(v any) ([]byte, error)) {
+	zerolog.InterfaceMarshalFunc = func(i any) ([]byte, error) {
+		switch v := i.(type) {
+		case json.Marshaler:
+			return marshaler(i)
+		case encoding.TextMarshaler:
+			return marshaler(i)
+		case fmt.Stringer:
+			return marshaler(v.String())
+		default:
+			return marshaler(i)
+		}
+	}
+}
+
 type zeroLogWrapper struct {
 	*zerolog.Logger
 }
@@ -69,6 +91,7 @@ type zeroLogWrapper struct {
 //
 // Stderr is the typical destination for logs,
 // so that any output from your application can still be piped to other processes.
+// The returned value can be safely cast to cosmossdk.io/core/log.Logger.
 func NewLogger(dst io.Writer, options ...Option) Logger {
 	logCfg := defaultConfig
 	for _, opt := range options {
@@ -105,6 +128,8 @@ func NewLogger(dst io.Writer, options ...Option) Logger {
 		logger = logger.Level(logCfg.Level)
 	}
 
+	logger = logger.Hook(logCfg.Hooks...)
+
 	return zeroLogWrapper{&logger}
 }
 
@@ -119,13 +144,19 @@ func (l zeroLogWrapper) Info(msg string, keyVals ...interface{}) {
 	l.Logger.Info().Fields(keyVals).Msg(msg)
 }
 
-// Error takes a message and a set of key/value pairs and logs with level DEBUG.
+// Warn takes a message and a set of key/value pairs and logs with level WARN.
+// The key of the tuple must be a string.
+func (l zeroLogWrapper) Warn(msg string, keyVals ...interface{}) {
+	l.Logger.Warn().Fields(keyVals).Msg(msg)
+}
+
+// Error takes a message and a set of key/value pairs and logs with level ERROR.
 // The key of the tuple must be a string.
 func (l zeroLogWrapper) Error(msg string, keyVals ...interface{}) {
 	l.Logger.Error().Fields(keyVals).Msg(msg)
 }
 
-// Debug takes a message and a set of key/value pairs and logs with level ERR.
+// Debug takes a message and a set of key/value pairs and logs with level DEBUG.
 // The key of the tuple must be a string.
 func (l zeroLogWrapper) Debug(msg string, keyVals ...interface{}) {
 	l.Logger.Debug().Fields(keyVals).Msg(msg)
@@ -133,6 +164,12 @@ func (l zeroLogWrapper) Debug(msg string, keyVals ...interface{}) {
 
 // With returns a new wrapped logger with additional context provided by a set.
 func (l zeroLogWrapper) With(keyVals ...interface{}) Logger {
+	logger := l.Logger.With().Fields(keyVals).Logger()
+	return zeroLogWrapper{&logger}
+}
+
+// WithContext returns a new wrapped logger with additional context provided by a set.
+func (l zeroLogWrapper) WithContext(keyVals ...interface{}) any {
 	logger := l.Logger.With().Fields(keyVals).Logger()
 	return zeroLogWrapper{&logger}
 }
@@ -154,8 +191,10 @@ func NewNopLogger() Logger {
 // The custom implementation is about 3x faster.
 type nopLogger struct{}
 
-func (nopLogger) Info(string, ...any)  {}
-func (nopLogger) Error(string, ...any) {}
-func (nopLogger) Debug(string, ...any) {}
-func (nopLogger) With(...any) Logger   { return nopLogger{} }
-func (nopLogger) Impl() any            { return nopLogger{} }
+func (nopLogger) Info(string, ...any)    {}
+func (nopLogger) Warn(string, ...any)    {}
+func (nopLogger) Error(string, ...any)   {}
+func (nopLogger) Debug(string, ...any)   {}
+func (nopLogger) With(...any) Logger     { return nopLogger{} }
+func (nopLogger) WithContext(...any) any { return nopLogger{} }
+func (nopLogger) Impl() any              { return nopLogger{} }

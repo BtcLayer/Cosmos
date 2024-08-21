@@ -3,8 +3,10 @@ package types
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"sort"
 
+	"cosmossdk.io/core/address"
 	"cosmossdk.io/x/bank/exported"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -51,8 +53,8 @@ func (b balanceByAddress) Swap(i, j int) {
 	b.balances[i], b.balances[j] = b.balances[j], b.balances[i]
 }
 
-// SanitizeGenesisBalances sorts addresses and coin sets.
-func SanitizeGenesisBalances(balances []Balance) []Balance {
+// SanitizeGenesisBalances checks for duplicates and sorts addresses and coin sets.
+func SanitizeGenesisBalances(balances []Balance, addressCodec address.Codec) ([]Balance, error) {
 	// Given that this function sorts balances, using the standard library's
 	// Quicksort based algorithms, we have algorithmic complexities of:
 	// * Best case: O(nlogn)
@@ -64,15 +66,24 @@ func SanitizeGenesisBalances(balances []Balance) []Balance {
 
 	// 1. Retrieve the address equivalents for each Balance's address.
 	addresses := make([]sdk.AccAddress, len(balances))
+	// 2. Track any duplicate addresses to avoid false positives on invariant checks.
+	seen := make(map[string]struct{})
 	for i := range balances {
-		addr, _ := sdk.AccAddressFromBech32(balances[i].Address)
+		addr, err := addressCodec.StringToBytes(balances[i].Address)
+		if err != nil {
+			return nil, err
+		}
 		addresses[i] = addr
+		if _, exists := seen[string(addr)]; exists {
+			panic(fmt.Sprintf("genesis state has a duplicate account: %q aka %x", balances[i].Address, addr))
+		}
+		seen[string(addr)] = struct{}{}
 	}
 
-	// 2. Sort balances.
+	// 3. Sort balances.
 	sort.Sort(balanceByAddress{addresses: addresses, balances: balances})
 
-	return balances
+	return balances, nil
 }
 
 // GenesisBalancesIterator implements genesis account iteration.

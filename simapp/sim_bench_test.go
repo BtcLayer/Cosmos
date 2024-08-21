@@ -1,8 +1,13 @@
+//go:build sims
+
 package simapp
 
 import (
 	"os"
 	"testing"
+
+	"cosmossdk.io/log"
+	"github.com/cosmos/cosmos-sdk/testutils/sims"
 
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -30,7 +35,7 @@ func BenchmarkFullAppSimulation(b *testing.B) {
 	b.ReportAllocs()
 
 	config := simcli.NewConfigFromFlags()
-	config.ChainID = SimAppChainID
+	config.ChainID = sims.SimAppChainID
 
 	db, dir, logger, skip, err := simtestutil.SetupSimulation(config, "goleveldb-app-sim", "Simulation", simcli.FlagVerboseValue, simcli.FlagEnabledValue)
 	if err != nil {
@@ -47,31 +52,25 @@ func BenchmarkFullAppSimulation(b *testing.B) {
 	}()
 
 	appOptions := viper.New()
-	if FlagEnableStreamingValue {
-		m := make(map[string]interface{})
-		m["streaming.abci.keys"] = []string{"*"}
-		m["streaming.abci.plugin"] = "abci_v1"
-		m["streaming.abci.stop-node-on-err"] = true
-		for key, value := range m {
-			appOptions.SetDefault(key, value)
-		}
-	}
 	appOptions.SetDefault(flags.FlagHome, DefaultNodeHome)
 	appOptions.SetDefault(server.FlagInvCheckPeriod, simcli.FlagPeriodValue)
 
-	app := NewSimApp(logger, db, nil, true, appOptions, interBlockCacheOpt(), baseapp.SetChainID(SimAppChainID))
+	app := NewSimApp(logger, db, nil, true, appOptions, interBlockCacheOpt(), baseapp.SetChainID(sims.SimAppChainID))
 
 	// run randomized simulation
-	_, simParams, simErr := simulation.SimulateFromSeed(
+	simParams, simErr := simulation.SimulateFromSeedX(
 		b,
+		log.NewNopLogger(),
 		os.Stdout,
 		app.BaseApp,
-		simtestutil.AppStateFn(app.AppCodec(), app.SimulationManager(), app.DefaultGenesis()),
-		simtypes.RandomAccounts, // Replace with own random account function if using keys other than secp256k1
-		simtestutil.SimulationOperations(app, app.AppCodec(), config),
+		simtestutil.AppStateFn(app.AppCodec(), app.AuthKeeper.AddressCodec(), app.StakingKeeper.ValidatorAddressCodec(), app.SimulationManager(), app.DefaultGenesis()),
+		simtypes.RandomAccounts,
+		simtestutil.SimulationOperations(app, app.AppCodec(), config, app.txConfig),
 		BlockedAddresses(),
 		config,
 		app.AppCodec(),
+		app.txConfig.SigningContext().AddressCodec(),
+		&simulation.DummyLogWriter{},
 	)
 
 	// export state and simParams before the simulation error is checked

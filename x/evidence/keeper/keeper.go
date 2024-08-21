@@ -8,22 +8,22 @@ import (
 
 	"cosmossdk.io/collections"
 	"cosmossdk.io/core/address"
-	"cosmossdk.io/core/store"
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/core/event"
 	"cosmossdk.io/errors"
-	"cosmossdk.io/log"
 	"cosmossdk.io/x/evidence/exported"
 	"cosmossdk.io/x/evidence/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 // Keeper defines the evidence module's keeper. The keeper is responsible for
 // managing persistence, state transitions and query handling for the evidence
 // module.
 type Keeper struct {
+	appmodule.Environment
+
 	cdc            codec.BinaryCodec
-	storeService   store.KVStoreService
 	router         types.Router
 	stakingKeeper  types.StakingKeeper
 	slashingKeeper types.SlashingKeeper
@@ -36,13 +36,13 @@ type Keeper struct {
 
 // NewKeeper creates a new Keeper object.
 func NewKeeper(
-	cdc codec.BinaryCodec, storeService store.KVStoreService, stakingKeeper types.StakingKeeper,
+	cdc codec.BinaryCodec, env appmodule.Environment, stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper, ac address.Codec,
 ) *Keeper {
-	sb := collections.NewSchemaBuilder(storeService)
+	sb := collections.NewSchemaBuilder(env.KVStoreService)
 	k := &Keeper{
+		Environment:    env,
 		cdc:            cdc,
-		storeService:   storeService,
 		stakingKeeper:  stakingKeeper,
 		slashingKeeper: slashingKeeper,
 		addressCodec:   ac,
@@ -54,12 +54,6 @@ func NewKeeper(
 	}
 	k.Schema = schema
 	return k
-}
-
-// Logger returns a module-specific logger.
-func (k Keeper) Logger(ctx context.Context) log.Logger {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	return sdkCtx.Logger().With("module", "x/"+types.ModuleName)
 }
 
 // SetRouter sets the Evidence Handler router for the x/evidence module. Note,
@@ -107,13 +101,12 @@ func (k Keeper) SubmitEvidence(ctx context.Context, evidence exported.Evidence) 
 		return errors.Wrap(types.ErrInvalidEvidence, err.Error())
 	}
 
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	sdkCtx.EventManager().EmitEvent(
-		sdk.NewEvent(
-			types.EventTypeSubmitEvidence,
-			sdk.NewAttribute(types.AttributeKeyEvidenceHash, strings.ToUpper(hex.EncodeToString(evidence.Hash()))),
-		),
-	)
+	if err := k.EventService.EventManager(ctx).EmitKV(
+		types.EventTypeSubmitEvidence,
+		event.NewAttribute(types.AttributeKeyEvidenceHash, strings.ToUpper(hex.EncodeToString(evidence.Hash()))),
+	); err != nil {
+		return err
+	}
 
 	return k.Evidences.Set(ctx, evidence.Hash(), evidence)
 }

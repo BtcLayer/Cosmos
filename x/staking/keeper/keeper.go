@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -9,9 +8,10 @@ import (
 
 	"cosmossdk.io/collections"
 	collcodec "cosmossdk.io/collections/codec"
+	"cosmossdk.io/collections/indexes"
 	addresscodec "cosmossdk.io/core/address"
-	storetypes "cosmossdk.io/core/store"
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/core/comet"
 	"cosmossdk.io/math"
 	"cosmossdk.io/x/staking/types"
 
@@ -25,25 +25,35 @@ var _ types.ValidatorSet = Keeper{}
 // Implements DelegationSet interface
 var _ types.DelegationSet = Keeper{}
 
-func HistoricalInfoCodec(cdc codec.BinaryCodec) collcodec.ValueCodec[types.HistoricalRecord] {
-	return collcodec.NewAltValueCodec(codec.CollValue[types.HistoricalRecord](cdc), func(b []byte) (types.HistoricalRecord, error) {
-		historicalinfo := types.HistoricalInfo{} //nolint: staticcheck // HistoricalInfo is deprecated
-		err := historicalinfo.Unmarshal(b)
-		if err != nil {
-			return types.HistoricalRecord{}, err
-		}
+type rotationHistoryIndexes struct {
+	Block *indexes.Multi[uint64, collections.Pair[[]byte, uint64], types.ConsPubKeyRotationHistory]
+}
 
-		return types.HistoricalRecord{
-			Apphash:        historicalinfo.Header.AppHash,
-			Time:           &historicalinfo.Header.Time,
-			ValidatorsHash: historicalinfo.Header.NextValidatorsHash,
-		}, nil
-	})
+func (a rotationHistoryIndexes) IndexesList() []collections.Index[collections.Pair[[]byte, uint64], types.ConsPubKeyRotationHistory] {
+	return []collections.Index[collections.Pair[[]byte, uint64], types.ConsPubKeyRotationHistory]{
+		a.Block,
+	}
+}
+
+func NewRotationHistoryIndexes(sb *collections.SchemaBuilder) rotationHistoryIndexes {
+	return rotationHistoryIndexes{
+		Block: indexes.NewMulti(
+			sb,
+			types.BlockConsPubKeyRotationHistoryKey,
+			"cons_pubkey_history_by_block",
+			collections.Uint64Key,
+			collections.PairKeyCodec(collections.BytesKey, collections.Uint64Key),
+			func(key collections.Pair[[]byte, uint64], v types.ConsPubKeyRotationHistory) (uint64, error) {
+				return v.Height, nil
+			},
+		),
+	}
 }
 
 // Keeper of the x/staking store
 type Keeper struct {
-	storeService          storetypes.KVStoreService
+	appmodule.Environment
+
 	cdc                   codec.BinaryCodec
 	authKeeper            types.AccountKeeper
 	bankKeeper            types.BankKeeper
@@ -51,15 +61,12 @@ type Keeper struct {
 	authority             string
 	validatorAddressCodec addresscodec.Codec
 	consensusAddressCodec addresscodec.Codec
+	cometInfoService      comet.Service
 
 	Schema collections.Schema
 
-	// HistoricalInfo key: Height | value: HistoricalInfo
-	HistoricalInfo collections.Map[uint64, types.HistoricalRecord]
 	// LastTotalPower value: LastTotalPower
 	LastTotalPower collections.Item[math.Int]
-	// ValidatorUpdates value: ValidatorUpdates
-	ValidatorUpdates collections.Item[types.ValidatorUpdates]
 	// DelegationsByValidator key: valAddr+delAddr | value: none used (index key for delegations by validator index)
 	DelegationsByValidator collections.Map[collections.Pair[sdk.ValAddress, sdk.AccAddress], []byte]
 	UnbondingID            collections.Sequence
@@ -93,19 +100,31 @@ type Keeper struct {
 	LastValidatorPower collections.Map[[]byte, gogotypes.Int64Value]
 	// Params key: ParamsKeyPrefix | value: Params
 	Params collections.Item[types.Params]
+	// ValidatorConsensusKeyRotationRecordIndexKey: this key is used to restrict the validator next rotation within waiting (unbonding) period
+	ValidatorConsensusKeyRotationRecordIndexKey collections.KeySet[collections.Pair[[]byte, time.Time]]
+	// ValidatorConsensusKeyRotationRecordQueue: this key is used to set the unbonding period time on each rotation
+	ValidatorConsensusKeyRotationRecordQueue collections.Map[time.Time, types.ValAddrsOfRotatedConsKeys]
+	// ConsAddrToValidatorIdentifierMap: maps the new cons addr to the initial cons addr
+	ConsAddrToValidatorIdentifierMap collections.Map[[]byte, []byte]
+	// OldToNewConsAddrMap: maps the old cons addr to the new cons addr
+	OldToNewConsAddrMap collections.Map[[]byte, []byte]
+	// ValidatorConsPubKeyRotationHistory: consPubkey rotation history by validator
+	// A index is being added with key `BlockConsPubKeyRotationHistory`: consPubkey rotation history by height
+	RotationHistory *collections.IndexedMap[collections.Pair[[]byte, uint64], types.ConsPubKeyRotationHistory, rotationHistoryIndexes]
 }
 
 // NewKeeper creates a new staking Keeper instance
 func NewKeeper(
 	cdc codec.BinaryCodec,
-	storeService storetypes.KVStoreService,
+	env appmodule.Environment,
 	ak types.AccountKeeper,
 	bk types.BankKeeper,
 	authority string,
 	validatorAddressCodec addresscodec.Codec,
 	consensusAddressCodec addresscodec.Codec,
+	cometInfoService comet.Service,
 ) *Keeper {
-	sb := collections.NewSchemaBuilder(storeService)
+	sb := collections.NewSchemaBuilder(env.KVStoreService)
 	// ensure bonded and not bonded module accounts are set
 	if addr := ak.GetModuleAddress(types.BondedPoolName); addr == nil {
 		panic(fmt.Sprintf("%s module account has not been set", types.BondedPoolName))
@@ -125,7 +144,7 @@ func NewKeeper(
 	}
 
 	k := &Keeper{
-		storeService:          storeService,
+		Environment:           env,
 		cdc:                   cdc,
 		authKeeper:            ak,
 		bankKeeper:            bk,
@@ -133,9 +152,8 @@ func NewKeeper(
 		authority:             authority,
 		validatorAddressCodec: validatorAddressCodec,
 		consensusAddressCodec: consensusAddressCodec,
+		cometInfoService:      cometInfoService,
 		LastTotalPower:        collections.NewItem(sb, types.LastTotalPowerKey, "last_total_power", sdk.IntValue),
-		HistoricalInfo:        collections.NewMap(sb, types.HistoricalInfoKey, "historical_info", collections.Uint64Key, HistoricalInfoCodec(cdc)),
-		ValidatorUpdates:      collections.NewItem(sb, types.ValidatorUpdatesKey, "validator_updates", codec.CollValue[types.ValidatorUpdates](cdc)),
 		Delegations: collections.NewMap(
 			sb, types.DelegationKey, "delegations",
 			collections.PairKeyCodec(
@@ -226,6 +244,48 @@ func NewKeeper(
 		),
 		// key is: 113 (it's a direct prefix)
 		Params: collections.NewItem(sb, types.ParamsKey, "params", codec.CollValue[types.Params](cdc)),
+
+		// key format is: 104 | valAddr | time
+		ValidatorConsensusKeyRotationRecordIndexKey: collections.NewKeySet(
+			sb, types.ValidatorConsensusKeyRotationRecordIndexKey,
+			"cons_pub_rotation_index",
+			collections.PairKeyCodec(collections.BytesKey, sdk.TimeKey),
+		),
+
+		// key format is: 103 | time
+		ValidatorConsensusKeyRotationRecordQueue: collections.NewMap(
+			sb, types.ValidatorConsensusKeyRotationRecordQueueKey,
+			"cons_pub_rotation_queue",
+			sdk.TimeKey,
+			codec.CollValue[types.ValAddrsOfRotatedConsKeys](cdc),
+		),
+
+		// key format is: 105 | consAddr
+		ConsAddrToValidatorIdentifierMap: collections.NewMap(
+			sb, types.ConsAddrToValidatorIdentifierMapPrefix,
+			"new_to_old_cons_addr_map",
+			collections.BytesKey,
+			collections.BytesValue,
+		),
+
+		// key format is: 106 | consAddr
+		OldToNewConsAddrMap: collections.NewMap(
+			sb, types.OldToNewConsAddrMap,
+			"old_to_new_cons_key_map",
+			collections.BytesKey,
+			collections.BytesValue,
+		),
+
+		// key format is : 101 | rotation history
+		// index is : 102 | rotation history
+		RotationHistory: collections.NewIndexedMap(
+			sb,
+			types.ValidatorConsPubKeyRotationHistoryKey,
+			"cons_pub_rotation_history",
+			collections.PairKeyCodec(collections.BytesKey, collections.Uint64Key),
+			codec.CollValue[types.ConsPubKeyRotationHistory](cdc),
+			NewRotationHistoryIndexes(sb),
+		),
 	}
 
 	schema, err := sb.Build()
@@ -234,12 +294,6 @@ func NewKeeper(
 	}
 	k.Schema = schema
 	return k
-}
-
-// Logger returns a module-specific logger.
-func (k Keeper) Logger(ctx context.Context) log.Logger {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	return sdkCtx.Logger().With("module", "x/"+types.ModuleName)
 }
 
 // Hooks gets the hooks for staking *Keeper {

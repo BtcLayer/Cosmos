@@ -17,8 +17,9 @@ import (
 
 	errorsmod "cosmossdk.io/errors"
 	"cosmossdk.io/log"
-	"cosmossdk.io/store/v2/snapshots"
-	snapshottypes "cosmossdk.io/store/v2/snapshots/types"
+	"cosmossdk.io/store/snapshots"
+	snapshottypes "cosmossdk.io/store/snapshots/types"
+	"cosmossdk.io/store/types"
 )
 
 func checksums(slice [][]byte) [][]byte {
@@ -126,7 +127,7 @@ func (m *mockSnapshotter) Restore(
 	for {
 		item.Reset()
 		err := protoReader.ReadMsg(&item)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return snapshottypes.SnapshotItem{}, errorsmod.Wrap(err, "invalid protobuf message")
@@ -301,7 +302,7 @@ func (s *extSnapshotter) SupportedFormats() []uint32 {
 
 func (s *extSnapshotter) SnapshotExtension(height uint64, payloadWriter snapshottypes.ExtensionPayloadWriter) error {
 	for _, i := range s.state {
-		if err := payloadWriter(snapshottypes.Uint64ToBigEndian(i)); err != nil {
+		if err := payloadWriter(types.Uint64ToBigEndian(i)); err != nil {
 			return err
 		}
 	}
@@ -311,12 +312,12 @@ func (s *extSnapshotter) SnapshotExtension(height uint64, payloadWriter snapshot
 func (s *extSnapshotter) RestoreExtension(height uint64, format uint32, payloadReader snapshottypes.ExtensionPayloadReader) error {
 	for {
 		payload, err := payloadReader()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err
 		}
-		s.state = append(s.state, snapshottypes.BigEndianToUint64(payload))
+		s.state = append(s.state, types.BigEndianToUint64(payload))
 	}
 	// finalize restoration
 	return nil

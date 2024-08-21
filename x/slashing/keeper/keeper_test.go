@@ -10,16 +10,17 @@ import (
 
 	st "cosmossdk.io/api/cosmos/staking/v1beta1"
 	"cosmossdk.io/core/header"
+	coretesting "cosmossdk.io/core/testing"
 	sdkmath "cosmossdk.io/math"
 	storetypes "cosmossdk.io/store/types"
 	authtypes "cosmossdk.io/x/auth/types"
-	govtypes "cosmossdk.io/x/gov/types"
 	slashingkeeper "cosmossdk.io/x/slashing/keeper"
 	slashingtestutil "cosmossdk.io/x/slashing/testutil"
 	slashingtypes "cosmossdk.io/x/slashing/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdktestutil "github.com/cosmos/cosmos-sdk/testutil"
 	"github.com/cosmos/cosmos-sdk/testutil/testdata"
@@ -28,7 +29,7 @@ import (
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 )
 
-var consAddr = sdk.ConsAddress(sdk.AccAddress([]byte("addr1_______________")))
+var consAddr = sdk.ConsAddress("addr1_______________")
 
 type KeeperTestSuite struct {
 	suite.Suite
@@ -45,9 +46,10 @@ func (s *KeeperTestSuite) SetupTest() {
 	key := storetypes.NewKVStoreKey(slashingtypes.StoreKey)
 	s.key = key
 	storeService := runtime.NewKVStoreService(key)
+	env := runtime.NewEnvironment(storeService, coretesting.NewNopLogger())
 	testCtx := sdktestutil.DefaultContextWithDB(s.T(), key, storetypes.NewTransientStoreKey("transient_test"))
 	ctx := testCtx.Ctx.WithHeaderInfo(header.Info{Time: time.Now().Round(0).UTC()})
-	encCfg := moduletestutil.MakeTestEncodingConfig()
+	encCfg := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{})
 
 	// gomock initializations
 	ctrl := gomock.NewController(s.T())
@@ -55,14 +57,14 @@ func (s *KeeperTestSuite) SetupTest() {
 	s.stakingKeeper.EXPECT().ValidatorAddressCodec().Return(address.NewBech32Codec("cosmosvaloper")).AnyTimes()
 	s.stakingKeeper.EXPECT().ConsensusAddressCodec().Return(address.NewBech32Codec("cosmosvalcons")).AnyTimes()
 
-	authStr, err := address.NewBech32Codec("cosmos").BytesToString(authtypes.NewModuleAddress(govtypes.ModuleName))
+	authStr, err := address.NewBech32Codec("cosmos").BytesToString(authtypes.NewModuleAddress(slashingtypes.GovModuleName))
 	s.Require().NoError(err)
 
 	s.ctx = ctx
 	s.slashingKeeper = slashingkeeper.NewKeeper(
+		env,
 		encCfg.Codec,
 		encCfg.Amino,
-		storeService,
 		s.stakingKeeper,
 		authStr,
 	)
@@ -151,7 +153,7 @@ func validatorMissedBlockBitmapKey(v sdk.ConsAddress, chunkIndex int64) []byte {
 func (s *KeeperTestSuite) TestValidatorMissedBlockBMMigrationToColls() {
 	s.SetupTest()
 
-	consAddr := sdk.ConsAddress(sdk.AccAddress([]byte("addr1_______________")))
+	consAddr := sdk.ConsAddress("addr1_______________")
 	index := int64(0)
 	err := sdktestutil.DiffCollectionsMigration(
 		s.ctx,

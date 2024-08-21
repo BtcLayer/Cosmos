@@ -13,6 +13,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	"cosmossdk.io/x/staking/types"
 
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -40,7 +41,7 @@ func (k Querier) Validators(ctx context.Context, req *types.QueryValidatorsReque
 		return nil, status.Errorf(codes.InvalidArgument, "invalid validator status %s", req.Status)
 	}
 
-	store := runtime.KVStoreAdapter(k.storeService.OpenKVStore(ctx))
+	store := runtime.KVStoreAdapter(k.KVStoreService.OpenKVStore(ctx))
 	valStore := prefix.NewStore(store, types.ValidatorsKey)
 
 	validators, pageRes, err := query.GenericFilteredPaginate(k.cdc, valStore, req.Pagination, func(key []byte, val *types.Validator) (*types.Validator, error) {
@@ -57,11 +58,27 @@ func (k Querier) Validators(ctx context.Context, req *types.QueryValidatorsReque
 	}
 
 	vals := types.Validators{}
+	var validatorInfoList []types.ValidatorInfo
 	for _, val := range validators {
 		vals.Validators = append(vals.Validators, *val)
+		valInfo := types.ValidatorInfo{}
+
+		cpk, ok := val.ConsensusPubkey.GetCachedValue().(cryptotypes.PubKey)
+		if ok {
+			consAddr, err := k.consensusAddressCodec.BytesToString(cpk.Address())
+			if err == nil {
+				valInfo.ConsensusAddress = consAddr
+			}
+		}
+
+		validatorInfoList = append(validatorInfoList, valInfo)
 	}
 
-	return &types.QueryValidatorsResponse{Validators: vals.Validators, Pagination: pageRes}, nil
+	return &types.QueryValidatorsResponse{
+		Validators:    vals.Validators,
+		ValidatorInfo: validatorInfoList,
+		Pagination:    pageRes,
+	}, nil
 }
 
 // Validator queries validator info for given validator address
@@ -118,7 +135,6 @@ func (k Querier) ValidatorDelegations(ctx context.Context, req *types.QueryValid
 			return delegation, nil
 		}, query.WithCollectionPaginationPairPrefix[sdk.ValAddress, sdk.AccAddress](valAddr),
 	)
-
 	if err != nil {
 		delegations, pageResponse, err := k.getValidatorDelegationsLegacy(ctx, req)
 		if err != nil {
@@ -144,7 +160,7 @@ func (k Querier) ValidatorDelegations(ctx context.Context, req *types.QueryValid
 }
 
 func (k Querier) getValidatorDelegationsLegacy(ctx context.Context, req *types.QueryValidatorDelegationsRequest) ([]*types.Delegation, *query.PageResponse, error) {
-	store := runtime.KVStoreAdapter(k.storeService.OpenKVStore(ctx))
+	store := runtime.KVStoreAdapter(k.KVStoreService.OpenKVStore(ctx))
 
 	valStore := prefix.NewStore(store, types.DelegationKey)
 	return query.GenericFilteredPaginate(k.cdc, valStore, req.Pagination, func(key []byte, delegation *types.Delegation) (*types.Delegation, error) {
@@ -178,7 +194,7 @@ func (k Querier) ValidatorUnbondingDelegations(ctx context.Context, req *types.Q
 		return nil, err
 	}
 
-	store := runtime.KVStoreAdapter(k.storeService.OpenKVStore(ctx))
+	store := runtime.KVStoreAdapter(k.KVStoreService.OpenKVStore(ctx))
 	keys, pageRes, err := query.CollectionPaginate(
 		ctx,
 		k.UnbondingDelegationByValIndex,
@@ -388,21 +404,12 @@ func (k Querier) DelegatorUnbondingDelegations(ctx context.Context, req *types.Q
 }
 
 // HistoricalInfo queries the historical info for given height
-func (k Querier) HistoricalInfo(ctx context.Context, req *types.QueryHistoricalInfoRequest) (*types.QueryHistoricalInfoResponse, error) {
+func (k Querier) HistoricalInfo(ctx context.Context, req *types.QueryHistoricalInfoRequest) (*types.QueryHistoricalInfoResponse, error) { // nolint:staticcheck // SA1019: deprecated endpoint
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	if req.Height < 0 {
-		return nil, status.Error(codes.InvalidArgument, "height cannot be negative")
-	}
-
-	hi, err := k.Keeper.HistoricalInfo.Get(ctx, uint64(req.Height))
-	if err != nil {
-		return nil, status.Errorf(codes.NotFound, "historical info for height %d not found", req.Height)
-	}
-
-	return &types.QueryHistoricalInfoResponse{HistoricalRecord: &hi}, nil
+	return nil, status.Error(codes.Internal, "this endpoint has been deprecated and removed in 0.52")
 }
 
 // Redelegations queries redelegations of given address
@@ -415,12 +422,12 @@ func (k Querier) Redelegations(ctx context.Context, req *types.QueryRedelegation
 	var pageRes *query.PageResponse
 	var err error
 
-	store := runtime.KVStoreAdapter(k.storeService.OpenKVStore(ctx))
+	store := runtime.KVStoreAdapter(k.KVStoreService.OpenKVStore(ctx))
 	switch {
 	case req.DelegatorAddr != "" && req.SrcValidatorAddr != "" && req.DstValidatorAddr != "":
 		redels, err = queryRedelegation(ctx, k, req)
 	case req.DelegatorAddr == "" && req.SrcValidatorAddr != "" && req.DstValidatorAddr == "":
-		redels, pageRes, err = queryRedelegationsFromSrcValidator(ctx, store, k, req)
+		redels, pageRes, err = queryRedelegationsFromSrcValidator(ctx, k, req)
 	default:
 		redels, pageRes, err = queryAllRedelegations(ctx, store, k, req)
 	}
@@ -527,7 +534,7 @@ func queryRedelegation(ctx context.Context, k Querier, req *types.QueryRedelegat
 	return redels, nil
 }
 
-func queryRedelegationsFromSrcValidator(ctx context.Context, store storetypes.KVStore, k Querier, req *types.QueryRedelegationsRequest) (types.Redelegations, *query.PageResponse, error) {
+func queryRedelegationsFromSrcValidator(ctx context.Context, k Querier, req *types.QueryRedelegationsRequest) (types.Redelegations, *query.PageResponse, error) {
 	valAddr, err := k.validatorAddressCodec.StringToBytes(req.SrcValidatorAddr)
 	if err != nil {
 		return nil, nil, err

@@ -8,7 +8,7 @@ import (
 	st "cosmossdk.io/api/cosmos/staking/v1beta1"
 	"cosmossdk.io/collections"
 	"cosmossdk.io/math"
-	types "cosmossdk.io/x/staking/types"
+	"cosmossdk.io/x/staking/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -35,9 +35,6 @@ import (
 //	Infraction was committed at the current height or at a past height,
 //	but not at a height in the future
 func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionHeight, power int64, slashFactor math.LegacyDec) (math.Int, error) {
-	logger := k.Logger(ctx)
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
 	if slashFactor.IsNegative() {
 		return math.NewInt(0), fmt.Errorf("attempted to slash with a negative slash factor: %v", slashFactor)
 	}
@@ -57,10 +54,10 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 		// Log the slash attempt for future reference (maybe we should tag it too)
 		conStr, err := k.consensusAddressCodec.BytesToString(consAddr)
 		if err != nil {
-			panic(err)
+			return math.NewInt(0), err
 		}
 
-		logger.Error(
+		k.Logger.Error(
 			"WARNING: ignored attempt to slash a nonexistent validator; we recommend you investigate immediately",
 			"validator", conStr,
 		)
@@ -76,12 +73,12 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 
 	operatorAddress, err := k.ValidatorAddressCodec().StringToBytes(validator.GetOperator())
 	if err != nil {
-		return math.Int{}, err
+		return math.NewInt(0), err
 	}
 
 	// call the before-modification hook
 	if err := k.Hooks().BeforeValidatorModified(ctx, operatorAddress); err != nil {
-		k.Logger(ctx).Error("failed to call before validator modified hook", "error", err)
+		return math.NewInt(0), fmt.Errorf("failed to call before validator modified hook: %w", err)
 	}
 
 	// Track remaining slash amount for the validator
@@ -89,22 +86,24 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 	// redelegations, as that stake has since unbonded
 	remainingSlashAmount := slashAmount
 
+	headerInfo := k.HeaderService.HeaderInfo(ctx)
+	height := headerInfo.Height
 	switch {
-	case infractionHeight > sdkCtx.BlockHeight():
+	case infractionHeight > height:
 		// Can't slash infractions in the future
 		return math.NewInt(0), fmt.Errorf(
 			"impossible attempt to slash future infraction at height %d but we are at height %d",
-			infractionHeight, sdkCtx.BlockHeight())
+			infractionHeight, height)
 
-	case infractionHeight == sdkCtx.BlockHeight():
+	case infractionHeight == height:
 		// Special-case slash at current height for efficiency - we don't need to
 		// look through unbonding delegations or redelegations.
-		logger.Info(
+		k.Logger.Info(
 			"slashing at current height; not scanning unbonding delegations & redelegations",
 			"height", infractionHeight,
 		)
 
-	case infractionHeight < sdkCtx.BlockHeight():
+	case infractionHeight < height:
 		// Iterate through unbonding delegations from slashed validator
 		unbondingDelegations, err := k.GetUnbondingDelegationsFromValidator(ctx, operatorAddress)
 		if err != nil {
@@ -151,7 +150,7 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 		// Nothing to burn, we can end this route immediately! We also don't
 		// need to call the k.Hooks().BeforeValidatorSlashed hook as we won't
 		// be slashing at all.
-		logger.Info(
+		k.Logger.Info(
 			"no validator slashing because slash amount is zero",
 			"validator", validator.GetOperator(),
 			"slash_factor", slashFactor.String(),
@@ -170,7 +169,7 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 		}
 		// call the before-slashed hook
 		if err := k.Hooks().BeforeValidatorSlashed(ctx, operatorAddress, effectiveFraction); err != nil {
-			k.Logger(ctx).Error("failed to call before validator slashed hook", "error", err)
+			return math.NewInt(0), fmt.Errorf("failed to call before validator slashed hook: %w", err)
 		}
 	}
 
@@ -182,19 +181,19 @@ func (k Keeper) Slash(ctx context.Context, consAddr sdk.ConsAddress, infractionH
 	}
 
 	switch validator.GetStatus() {
-	case types.Bonded:
+	case sdk.Bonded:
 		if err := k.burnBondedTokens(ctx, tokensToBurn); err != nil {
 			return math.NewInt(0), err
 		}
-	case types.Unbonding, types.Unbonded:
+	case sdk.Unbonding, sdk.Unbonded:
 		if err := k.burnNotBondedTokens(ctx, tokensToBurn); err != nil {
 			return math.NewInt(0), err
 		}
 	default:
-		panic("invalid validator status")
+		return math.NewInt(0), errors.New("invalid validator status")
 	}
 
-	logger.Info(
+	k.Logger.Info(
 		"validator slashed by slash factor",
 		"validator", validator.GetOperator(),
 		"slash_factor", slashFactor.String(),
@@ -210,24 +209,29 @@ func (k Keeper) SlashWithInfractionReason(ctx context.Context, consAddr sdk.Cons
 
 // jail a validator
 func (k Keeper) Jail(ctx context.Context, consAddr sdk.ConsAddress) error {
-	validator := k.mustGetValidatorByConsAddr(ctx, consAddr)
+	validator, err := k.GetValidatorByConsAddr(ctx, consAddr)
+	if err != nil {
+		return fmt.Errorf("validator with consensus-Address %s not found", consAddr)
+	}
 	if err := k.jailValidator(ctx, validator); err != nil {
 		return err
 	}
 
-	logger := k.Logger(ctx)
-	logger.Info("validator jailed", "validator", consAddr)
+	k.Logger.Info("validator jailed", "validator", consAddr)
 	return nil
 }
 
 // unjail a validator
 func (k Keeper) Unjail(ctx context.Context, consAddr sdk.ConsAddress) error {
-	validator := k.mustGetValidatorByConsAddr(ctx, consAddr)
+	validator, err := k.GetValidatorByConsAddr(ctx, consAddr)
+	if err != nil {
+		return fmt.Errorf("validator with consensus-Address %s not found", consAddr)
+	}
 	if err := k.unjailValidator(ctx, validator); err != nil {
 		return err
 	}
-	logger := k.Logger(ctx)
-	logger.Info("validator un-jailed", "validator", consAddr)
+
+	k.Logger.Info("validator un-jailed", "validator", consAddr)
 	return nil
 }
 
@@ -239,8 +243,7 @@ func (k Keeper) Unjail(ctx context.Context, consAddr sdk.ConsAddress) error {
 func (k Keeper) SlashUnbondingDelegation(ctx context.Context, unbondingDelegation types.UnbondingDelegation,
 	infractionHeight int64, slashFactor math.LegacyDec,
 ) (totalSlashAmount math.Int, err error) {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	now := sdkCtx.HeaderInfo().Time
+	now := k.HeaderService.HeaderInfo(ctx).Time
 	totalSlashAmount = math.ZeroInt()
 	burnedAmount := math.ZeroInt()
 
@@ -296,8 +299,7 @@ func (k Keeper) SlashUnbondingDelegation(ctx context.Context, unbondingDelegatio
 func (k Keeper) SlashRedelegation(ctx context.Context, srcValidator types.Validator, redelegation types.Redelegation,
 	infractionHeight int64, slashFactor math.LegacyDec,
 ) (totalSlashAmount math.Int, err error) {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	now := sdkCtx.HeaderInfo().Time
+	now := k.HeaderService.HeaderInfo(ctx).Time
 	totalSlashAmount = math.ZeroInt()
 	bondedBurnedAmount, notBondedBurnedAmount := math.ZeroInt(), math.ZeroInt()
 
@@ -328,10 +330,55 @@ func (k Keeper) SlashRedelegation(ctx context.Context, srcValidator types.Valida
 		slashAmount := slashAmountDec.TruncateInt()
 		totalSlashAmount = totalSlashAmount.Add(slashAmount)
 
+		// Handle undelegation after redelegation
+		// Prioritize slashing unbondingDelegation than delegation
+		unbondingDelegation, err := k.UnbondingDelegations.Get(ctx, collections.Join(delegatorAddress, valDstAddr))
+		if err == nil {
+			for i, entry := range unbondingDelegation.Entries {
+				// slash with the amount of `slashAmount` if possible, else slash all unbonding token
+				unbondingSlashAmount := math.MinInt(slashAmount, entry.Balance)
+
+				switch {
+				// There's no token to slash
+				case unbondingSlashAmount.IsZero():
+					continue
+				// If unbonding started before this height, stake didn't contribute to infraction
+				case entry.CreationHeight < infractionHeight:
+					continue
+				// Unbonding delegation no longer eligible for slashing, skip it
+				case entry.IsMature(now) && !entry.OnHold():
+					continue
+				// Slash the unbonding delegation
+				default:
+					// update remaining slashAmount
+					slashAmount = slashAmount.Sub(unbondingSlashAmount)
+
+					notBondedBurnedAmount = notBondedBurnedAmount.Add(unbondingSlashAmount)
+					entry.Balance = entry.Balance.Sub(unbondingSlashAmount)
+					unbondingDelegation.Entries[i] = entry
+					if err = k.SetUnbondingDelegation(ctx, unbondingDelegation); err != nil {
+						return math.ZeroInt(), err
+					}
+				}
+			}
+		}
+
+		// Slash the moved delegation
 		// Unbond from target validator
-		sharesToUnbond := slashFactor.Mul(entry.SharesDst)
+		if slashAmount.IsZero() {
+			continue
+		}
+
+		dstVal, err := k.GetValidator(ctx, valDstAddr)
+		if err != nil {
+			return math.ZeroInt(), err
+		}
+
+		sharesToUnbond, err := dstVal.SharesFromTokensTruncated(slashAmount)
 		if sharesToUnbond.IsZero() {
 			continue
+		} else if err != nil {
+			return math.ZeroInt(), err
 		}
 
 		// Delegations can be dynamic hence need to be looked up on every redelegation entry loop.
@@ -351,19 +398,23 @@ func (k Keeper) SlashRedelegation(ctx context.Context, srcValidator types.Valida
 		}
 
 		dstValidator, err := k.GetValidator(ctx, valDstAddr)
-		if err != nil {
+		isNotFoundErr := errors.Is(err, types.ErrNoValidatorFound)
+		if err != nil && !isNotFoundErr {
 			return math.ZeroInt(), err
 		}
 
 		// tokens of a redelegation currently live in the destination validator
-		// therefor we must burn tokens from the destination-validator's bonding status
+		// therefore we must burn tokens from the destination-validator's bonding status
 		switch {
+		// this case covers for when a validator is removed from the set when his bond drops down to 0.
+		case isNotFoundErr:
+			notBondedBurnedAmount = notBondedBurnedAmount.Add(tokensToBurn)
 		case dstValidator.IsBonded():
 			bondedBurnedAmount = bondedBurnedAmount.Add(tokensToBurn)
 		case dstValidator.IsUnbonded() || dstValidator.IsUnbonding():
 			notBondedBurnedAmount = notBondedBurnedAmount.Add(tokensToBurn)
 		default:
-			panic("unknown validator status")
+			return math.ZeroInt(), errors.New("unknown validator status")
 		}
 	}
 

@@ -193,7 +193,7 @@ We already know the first three arguments of the ``NewMap`` function.
 
 The fourth parameter is our `KeyCodec`, we know that the ``Map`` has `string` as key so we pass it a `KeyCodec` that handles strings as keys.
 
-The fifth parameter is our `ValueCodec`, we know that the `Map` as a `uint64` as value so we pass it a `ValueCodec` that handles uint64.
+The fifth parameter is our `ValueCodec`, we know that the `Map` has a `uint64` as value so we pass it a `ValueCodec` that handles uint64.
 
 Collections already comes with all the required implementations for golang primitive types.
 
@@ -587,7 +587,7 @@ Let's analyse each method in the example and how it makes use of the `Iterate` a
 In `GetAllAccounts` we pass to our `Iterate` a nil `Ranger`. This means that the returned `Iterator` will include
 all the existing keys within the collection.
 
-Then we use some the `Values` method from the returned `Iterator` API to collect all the values into a slice.
+Then we use the `Values` method from the returned `Iterator` API to collect all the values into a slice.
 
 `Iterator` offers other methods such as `Keys()` to collect only the keys and not the values and `KeyValues` to collect
 all the keys and values.
@@ -602,9 +602,9 @@ we instruct it to report us results in reverse order through `Descending`
 Then we pass the range instruction to `Iterate` and get an `Iterator`, which will contain only the results
 we specified in the range.
 
-Then we use again th `Values` method of the `Iterator` to collect all the results.
+Then we use again the `Values` method of the `Iterator` to collect all the results.
 
-`collections.Range` also offers a `Prefix` API which is not appliable to all keys types,
+`collections.Range` also offers a `Prefix` API which is not applicable to all keys types,
 for example uint64 cannot be prefix because it is of constant size, but a `string` key
 can be prefixed.
 
@@ -677,7 +677,7 @@ func NewKeeper(storeKey *storetypes.KVStoreKey) Keeper {
 		Balances: collections.NewMap(
 			sb, BalancesPrefix, "balances",
 			collections.PairKeyCodec(sdk.AccAddressKey, collections.StringKey),
-			math.IntValue,
+			sdk.IntValue,
 		),
 	}
 }
@@ -720,7 +720,7 @@ func NewKeeper(storeKey *storetypes.KVStoreKey) Keeper {
 		Balances: collections.NewMap(
 			sb, BalancesPrefix, "balances",
 			collections.PairKeyCodec(sdk.AccAddressKey, collections.StringKey),
-			math.IntValue,
+			sdk.IntValue,
 		),
 	}
 }
@@ -777,7 +777,7 @@ We use the `collections.Join` function to generate the composite key.
 `collections.Pair` contains the two keys we have joined, it also exposes two methods: `K1` to fetch the 1st part of the
 key and `K2` to fetch the second part.
 
-As always, we use the `collections.Map.Set` method to map the composite key to our value (`math.Int`in this case)
+As always, we use the `collections.Map.Set` method to map the composite key to our value (`math.Int` in this case)
 
 #### GetBalance
 
@@ -796,7 +796,7 @@ in `Pair` keys iterations.
 ```
 
 As we can see here we're passing the type parameters of the `collections.Pair` because golang type inference
-with respect to generics is not as permissive as other languages, so we need to explitly say what are the types of the pair key.
+with respect to generics is not as permissive as other languages, so we need to explicitly say what are the types of the pair key.
 
 #### GetAllAddressesBalancesBetween
 
@@ -837,10 +837,6 @@ type AccountsIndexes struct {
 	Number *indexes.Unique[uint64, sdk.AccAddress, authtypes.BaseAccount]
 }
 
-func (a AccountsIndexes) IndexesList() []collections.Index[sdk.AccAddress, authtypes.BaseAccount] {
-	return []collections.Index[sdk.AccAddress, authtypes.BaseAccount]{a.Number}
-}
-
 func NewAccountIndexes(sb *collections.SchemaBuilder) AccountsIndexes {
 	return AccountsIndexes{
 		Number: indexes.NewUnique(
@@ -864,17 +860,25 @@ Then we can see in our `AccountIndexes` struct the `Number` field is defined as:
 ```
 
 Where the first type parameter is `uint64`, which is the field type of our index.
-The second type parameter is the primary key `sdk.AccAddress`
+The second type parameter is the primary key `sdk.AccAddress`.
 And the third type parameter is the actual object we're storing `authtypes.BaseAccount`.
-
-Then we implement a function called `IndexesList` on our `AccountIndexes` struct, this will be used
-by the `IndexedMap` to keep the underlying map in sync with the indexes, in our case `Number`.
-This function just needs to return the slice of indexes contained in the struct.
 
 Then we create a `NewAccountIndexes` function that instantiates and returns the `AccountsIndexes` struct.
 
 The function takes a `SchemaBuilder`. Then we instantiate our `indexes.Unique`, let's analyse the arguments we pass to
 `indexes.NewUnique`.
+
+#### NOTE: indexes list
+
+The `AccountsIndexes` struct contains the indexes, the `NewIndexedMap` function will infer the indexes form that struct
+using reflection, this happens only at init and is not computationally expensive. In case you want to explicitly declare
+indexes: implement the `Indexes` interface in the `AccountsIndexes` struct:
+
+```go
+func (a AccountsIndexes) IndexesList() []collections.Index[sdk.AccAddress, authtypes.BaseAccount] {
+    return []collections.Index[sdk.AccAddress, authtypes.BaseAccount]{a.Number}
+}
+```
 
 #### Instantiating a `indexes.Unique`
 

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 
 	"cosmossdk.io/math"
 )
@@ -66,6 +67,16 @@ func (coin Coin) IsValid() bool {
 // IsZero returns if this represents no money
 func (coin Coin) IsZero() bool {
 	return coin.Amount.IsZero()
+}
+
+// IsGT returns true if they are the same type and the receiver is
+// a greater value
+func (coin Coin) IsGT(other Coin) bool {
+	if coin.Denom != other.Denom {
+		panic(fmt.Sprintf("invalid coin denominations; %s, %s", coin.Denom, other.Denom))
+	}
+
+	return coin.Amount.GT(other.Amount)
 }
 
 // IsGTE returns true if they are the same type and the receiver is
@@ -274,7 +285,8 @@ func (coins Coins) Validate() error {
 	}
 }
 
-func (coins Coins) isSorted() bool {
+// IsSorted returns true when coins are order ASC sorted with denoms.
+func (coins Coins) IsSorted() bool {
 	for i := 1; i < len(coins); i++ {
 		if coins[i-1].Denom > coins[i].Denom {
 			return false
@@ -323,10 +335,10 @@ func (coins Coins) Add(coinsB ...Coin) Coins {
 func (coins Coins) safeAdd(coinsB Coins) (coalesced Coins) {
 	// probably the best way will be to make Coins and interface and hide the structure
 	// definition (type alias)
-	if !coins.isSorted() {
+	if !coins.IsSorted() {
 		panic("Coins (self) must be sorted")
 	}
-	if !coinsB.isSorted() {
+	if !coinsB.IsSorted() {
 		panic("Wrong argument: coins must be sorted")
 	}
 
@@ -473,7 +485,7 @@ func (coins Coins) SafeQuoInt(x math.Int) (Coins, bool) {
 //	a.Add(b...).Equal(a.Min(b).Add(a.Max(b)...))
 //
 // E.g.
-// {1A, 3B, 2C}.Max({4A, 2B, 2C} == {4A, 3B, 2C})
+// {1A, 3B, 2C}.Max({4A, 2B, 2C}) == {4A, 3B, 2C}
 // {2A, 3B}.Max({1B, 4C}) == {2A, 3B, 4C}
 // {1A, 2B}.Max({}) == {1A, 2B}
 func (coins Coins) Max(coinsB Coins) Coins {
@@ -519,7 +531,7 @@ func (coins Coins) Max(coinsB Coins) Coins {
 //	a.Add(b...).Equal(a.Min(b).Add(a.Max(b)...))
 //
 // E.g.
-// {1A, 3B, 2C}.Min({4A, 2B, 2C} == {1A, 2B, 2C})
+// {1A, 3B, 2C}.Min({4A, 2B, 2C}) == {1A, 2B, 2C}
 // {2A, 3B}.Min({1B, 4C}) == {1B}
 // {1A, 2B}.Min({3C}) == empty
 //
@@ -683,6 +695,7 @@ func (coins Coins) Empty() bool {
 }
 
 // AmountOf returns the amount of a denom from coins
+// CONTRACT: coins must be valid (sorted).
 func (coins Coins) AmountOf(denom string) math.Int {
 	mustValidateDenom(denom)
 	return coins.AmountOfNoDenomValidation(denom)
@@ -690,6 +703,7 @@ func (coins Coins) AmountOf(denom string) math.Int {
 
 // AmountOfNoDenomValidation returns the amount of a denom from coins
 // without validating the denomination.
+// CONTRACT: coins must be valid (sorted).
 func (coins Coins) AmountOfNoDenomValidation(denom string) math.Int {
 	if ok, c := coins.Find(denom); ok {
 		return c.Amount
@@ -820,34 +834,24 @@ var _ sort.Interface = Coins{}
 
 // Sort is a helper function to sort the set of coins in-place
 func (coins Coins) Sort() Coins {
-	sort.Sort(coins)
+	// sort.Sort(coins) does a costly runtime copy as part of `runtime.convTSlice`
+	// So we avoid this heap allocation if len(coins) <= 1. In the future, we should hopefully find
+	// a strategy to always avoid this.
+	if len(coins) > 1 {
+		sort.Sort(coins)
+	}
 	return coins
 }
 
-//-----------------------------------------------------------------------------
-// Parsing
-
 var (
-	// Denominations can be 3 ~ 128 characters long and support letters, followed by either
-	// a letter, a number or a separator ('/', ':', '.', '_' or '-').
-	reDnmString = `[a-zA-Z][a-zA-Z0-9/:._-]{2,127}`
-	reDecAmt    = `[[:digit:]]+(?:\.[[:digit:]]+)?|\.[[:digit:]]+`
-	reSpc       = `[[:space:]]*`
-	reDnm       *regexp.Regexp
-	reDecCoin   *regexp.Regexp
+	reDecAmt = `[[:digit:]]+(?:\.[[:digit:]]+)?|\.[[:digit:]]+`
+	reSpc    = `[[:space:]]*`
+
+	coinDenomRegex func() string
+
+	reDnm     *regexp.Regexp
+	reDecCoin *regexp.Regexp
 )
-
-func init() {
-	SetCoinDenomRegex(DefaultCoinDenomRegex)
-}
-
-// DefaultCoinDenomRegex returns the default regex string
-func DefaultCoinDenomRegex() string {
-	return reDnmString
-}
-
-// coinDenomRegex returns the current regex string and can be overwritten for custom validation
-var coinDenomRegex = DefaultCoinDenomRegex
 
 // SetCoinDenomRegex allows for coin's custom validation by overriding the regular
 // expression string used for denom validation.
@@ -860,10 +864,45 @@ func SetCoinDenomRegex(reFn func() string) {
 
 // ValidateDenom is the default validation function for Coin.Denom.
 func ValidateDenom(denom string) error {
-	if !reDnm.MatchString(denom) {
+	if reDnm == nil || reDecCoin == nil {
+		// Call the Ragel-generated function.
+		if !MatchDenom(denom) {
+			return fmt.Errorf("invalid denom: %s", denom)
+		}
+	} else if !reDnm.MatchString(denom) { // If reDnm has been initialized, use it for matching.
 		return fmt.Errorf("invalid denom: %s", denom)
 	}
+
 	return nil
+}
+
+// isValidRune checks if a given rune is a valid character for a rune.
+// It returns true if the rune is a letter, digit, '/', ':', '.', '_', or '-'.
+func isValidRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '/' || r == ':' || r == '.' || r == '_' || r == '-'
+}
+
+// MatchDenom checks if the given string is a valid denomination.
+// A valid denomination must have a length between 3 and 128 characters,
+// start with a letter, and only contain valid runes.
+func MatchDenom(s string) bool {
+	length := len(s)
+	if length < 3 || length > 128 {
+		return false
+	}
+
+	firstRune := rune(s[0])
+	if !unicode.IsLetter(firstRune) {
+		return false
+	}
+
+	for _, r := range s[1:] {
+		if !isValidRune(r) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func mustValidateDenom(denom string) {

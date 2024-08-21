@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"cosmossdk.io/core/store"
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/core/event"
 	errorsmod "cosmossdk.io/errors"
-	"cosmossdk.io/log"
 	"cosmossdk.io/math"
 	authtypes "cosmossdk.io/x/auth/types"
 	"cosmossdk.io/x/bank/types"
@@ -25,8 +25,8 @@ type Keeper interface {
 	SendKeeper
 	WithMintCoinsRestriction(types.MintingRestrictionFn) BaseKeeper
 
-	InitGenesis(context.Context, *types.GenesisState)
-	ExportGenesis(context.Context) *types.GenesisState
+	InitGenesis(context.Context, *types.GenesisState) error
+	ExportGenesis(context.Context) (*types.GenesisState, error)
 
 	GetSupply(ctx context.Context, denom string) sdk.Coin
 	HasSupply(ctx context.Context, denom string) bool
@@ -54,13 +54,12 @@ type Keeper interface {
 
 // BaseKeeper manages transfers between accounts. It implements the Keeper interface.
 type BaseKeeper struct {
+	appmodule.Environment
 	BaseSendKeeper
 
 	ak                     types.AccountKeeper
 	cdc                    codec.BinaryCodec
-	storeService           store.KVStoreService
 	mintCoinsRestrictionFn types.MintingRestrictionFn
-	logger                 log.Logger
 }
 
 // GetPaginatedTotalSupply queries for the supply, ignoring 0 coins, with a given pagination
@@ -82,27 +81,22 @@ func (k BaseKeeper) GetPaginatedTotalSupply(ctx context.Context, pagination *que
 // to receive funds through direct and explicit actions, for example, by using a MsgSend or
 // by using a SendCoinsFromModuleToAccount execution.
 func NewBaseKeeper(
+	env appmodule.Environment,
 	cdc codec.BinaryCodec,
-	storeService store.KVStoreService,
 	ak types.AccountKeeper,
 	blockedAddrs map[string]bool,
 	authority string,
-	logger log.Logger,
 ) BaseKeeper {
 	if _, err := ak.AddressCodec().StringToBytes(authority); err != nil {
 		panic(fmt.Errorf("invalid bank authority address: %w", err))
 	}
 
-	// add the module name to the logger
-	logger = logger.With(log.ModuleKey, "x/"+types.ModuleName)
-
 	return BaseKeeper{
-		BaseSendKeeper:         NewBaseSendKeeper(cdc, storeService, ak, blockedAddrs, authority, logger),
+		Environment:            env,
+		BaseSendKeeper:         NewBaseSendKeeper(env, cdc, ak, blockedAddrs, authority),
 		ak:                     ak,
 		cdc:                    cdc,
-		storeService:           storeService,
 		mintCoinsRestrictionFn: types.NoOpMintingRestrictionFn,
-		logger:                 logger,
 	}
 }
 
@@ -152,12 +146,19 @@ func (k BaseKeeper) DelegateCoins(ctx context.Context, delegatorAddr, moduleAccA
 		return errorsmod.Wrap(err, "failed to track delegation")
 	}
 	// emit coin spent event
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	sdkCtx.EventManager().EmitEvent(
-		types.NewCoinSpentEvent(delegatorAddr, amt),
-	)
+	delAddrStr, err := k.ak.AddressCodec().BytesToString(delegatorAddr)
+	if err != nil {
+		return err
+	}
+	if err := k.EventService.EventManager(ctx).EmitKV(
+		types.EventTypeCoinSpent,
+		event.NewAttribute(types.AttributeKeySpender, delAddrStr),
+		event.NewAttribute(sdk.AttributeKeyAmount, amt.String()),
+	); err != nil {
+		return err
+	}
 
-	err := k.addCoins(ctx, moduleAccAddr, amt)
+	err = k.addCoins(ctx, moduleAccAddr, amt)
 	if err != nil {
 		return err
 	}
@@ -254,14 +255,14 @@ func (k BaseKeeper) SetDenomMetaData(ctx context.Context, denomMetaData types.Me
 }
 
 // SendCoinsFromModuleToAccount transfers coins from a ModuleAccount to an AccAddress.
-// It will panic if the module account does not exist. An error is returned if
+// An error is returned if the module account does not exist or if
 // the recipient address is black-listed or if sending the tokens fails.
 func (k BaseKeeper) SendCoinsFromModuleToAccount(
 	ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins,
 ) error {
 	senderAddr := k.ak.GetModuleAddress(senderModule)
 	if senderAddr == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule)
 	}
 
 	if k.BlockedAddr(recipientAddr) {
@@ -272,89 +273,91 @@ func (k BaseKeeper) SendCoinsFromModuleToAccount(
 }
 
 // SendCoinsFromModuleToModule transfers coins from a ModuleAccount to another.
-// It will panic if either module account does not exist.
+// An error is returned if either module accounts does not exist.
 func (k BaseKeeper) SendCoinsFromModuleToModule(
 	ctx context.Context, senderModule, recipientModule string, amt sdk.Coins,
 ) error {
 	senderAddr := k.ak.GetModuleAddress(senderModule)
 	if senderAddr == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule)
 	}
 
 	recipientAcc := k.ak.GetModuleAccount(ctx, recipientModule)
 	if recipientAcc == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule)
 	}
 
 	return k.SendCoins(ctx, senderAddr, recipientAcc.GetAddress(), amt)
 }
 
 // SendCoinsFromAccountToModule transfers coins from an AccAddress to a ModuleAccount.
-// It will panic if the module account does not exist.
+// An error is returned if the module account does not exist.
 func (k BaseKeeper) SendCoinsFromAccountToModule(
 	ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins,
 ) error {
 	recipientAcc := k.ak.GetModuleAccount(ctx, recipientModule)
 	if recipientAcc == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule)
 	}
 
 	return k.SendCoins(ctx, senderAddr, recipientAcc.GetAddress(), amt)
 }
 
 // DelegateCoinsFromAccountToModule delegates coins and transfers them from a
-// delegator account to a module account. It will panic if the module account
+// delegator account to a module account. An error is returned if the module account
 // does not exist or is unauthorized.
 func (k BaseKeeper) DelegateCoinsFromAccountToModule(
 	ctx context.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins,
 ) error {
 	recipientAcc := k.ak.GetModuleAccount(ctx, recipientModule)
 	if recipientAcc == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", recipientModule)
 	}
 
 	if !recipientAcc.HasPermission(authtypes.Staking) {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to receive delegated coins", recipientModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to receive delegated coins", recipientModule)
 	}
 
 	return k.DelegateCoins(ctx, senderAddr, recipientAcc.GetAddress(), amt)
 }
 
 // UndelegateCoinsFromModuleToAccount undelegates the unbonding coins and transfers
-// them from a module account to the delegator account. It will panic if the
+// them from a module account to the delegator account. An error is returned if the
 // module account does not exist or is unauthorized.
 func (k BaseKeeper) UndelegateCoinsFromModuleToAccount(
 	ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins,
 ) error {
 	acc := k.ak.GetModuleAccount(ctx, senderModule)
 	if acc == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", senderModule)
 	}
 
 	if !acc.HasPermission(authtypes.Staking) {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to undelegate coins", senderModule))
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to undelegate coins", senderModule)
 	}
 
 	return k.UndelegateCoins(ctx, acc.GetAddress(), recipientAddr, amt)
 }
 
 // MintCoins creates new coins from thin air and adds it to the module account.
-// It will panic if the module account does not exist or is unauthorized.
+// An error is returned if the module account does not exist or is unauthorized.
 func (k BaseKeeper) MintCoins(ctx context.Context, moduleName string, amounts sdk.Coins) error {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-
 	err := k.mintCoinsRestrictionFn(ctx, amounts)
 	if err != nil {
-		k.logger.Error(fmt.Sprintf("Module %q attempted to mint coins %s it doesn't have permission for, error %v", moduleName, amounts, err))
+		k.Logger.Error(fmt.Sprintf("Module %q attempted to mint coins %s it doesn't have permission for, error %v", moduleName, amounts, err))
 		return err
 	}
 	acc := k.ak.GetModuleAccount(ctx, moduleName)
 	if acc == nil {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", moduleName))
+		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "module account %s does not exist", moduleName)
 	}
 
 	if !acc.HasPermission(authtypes.Minter) {
-		panic(errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to mint tokens", moduleName))
+		return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "module account %s does not have permissions to mint tokens", moduleName)
+	}
+
+	if !amounts.IsValid() {
+		return errorsmod.Wrap(sdkerrors.ErrInvalidCoins, amounts.String())
 	}
 
 	err = k.addCoins(ctx, acc.GetAddress(), amounts)
@@ -368,18 +371,23 @@ func (k BaseKeeper) MintCoins(ctx context.Context, moduleName string, amounts sd
 		k.setSupply(ctx, supply)
 	}
 
-	k.logger.Debug("minted coins from module account", "amount", amounts.String(), "from", moduleName)
+	k.Logger.Debug("minted coins from module account", "amount", amounts.String(), "from", moduleName)
+
+	addrStr, err := k.ak.AddressCodec().BytesToString(acc.GetAddress())
+	if err != nil {
+		return err
+	}
 
 	// emit mint event
-	sdkCtx.EventManager().EmitEvent(
-		types.NewCoinMintEvent(acc.GetAddress(), amounts),
+	return k.EventService.EventManager(ctx).EmitKV(
+		types.EventTypeCoinMint,
+		event.NewAttribute(types.AttributeKeyMinter, addrStr),
+		event.NewAttribute(sdk.AttributeKeyAmount, amounts.String()),
 	)
-
-	return nil
 }
 
-// BurnCoins burns coins deletes coins from the balance of the module account.
-// It will panic if the module account does not exist or is unauthorized.
+// BurnCoins burns coins deletes coins from the balance of an account.
+// An error is returned if the module account does not exist or is unauthorized.
 func (k BaseKeeper) BurnCoins(ctx context.Context, address []byte, amounts sdk.Coins) error {
 	acc := k.ak.GetAccount(ctx, address)
 	if acc == nil {
@@ -390,6 +398,9 @@ func (k BaseKeeper) BurnCoins(ctx context.Context, address []byte, amounts sdk.C
 		if !macc.HasPermission(authtypes.Burner) {
 			return errorsmod.Wrapf(sdkerrors.ErrUnauthorized, "account %x does not have permissions to burn tokens", address)
 		}
+	}
+	if !amounts.IsValid() {
+		return errorsmod.Wrap(sdkerrors.ErrInvalidCoins, amounts.String())
 	}
 
 	err := k.subUnlockedCoins(ctx, acc.GetAddress(), amounts)
@@ -403,15 +414,19 @@ func (k BaseKeeper) BurnCoins(ctx context.Context, address []byte, amounts sdk.C
 		k.setSupply(ctx, supply)
 	}
 
-	k.logger.Debug("burned tokens from account", "amount", amounts.String(), "from", address)
+	addrStr, err := k.ak.AddressCodec().BytesToString(acc.GetAddress())
+	if err != nil {
+		return err
+	}
+
+	k.Logger.Debug("burned tokens from account", "amount", amounts.String(), "from", addrStr)
 
 	// emit burn event
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	sdkCtx.EventManager().EmitEvent(
-		types.NewCoinBurnEvent(acc.GetAddress(), amounts),
+	return k.EventService.EventManager(ctx).EmitKV(
+		types.EventTypeCoinBurn,
+		event.NewAttribute(types.AttributeKeyBurner, addrStr),
+		event.NewAttribute(sdk.AttributeKeyAmount, amounts.String()),
 	)
-
-	return nil
 }
 
 // setSupply sets the supply for the given coin
@@ -428,24 +443,31 @@ func (k BaseKeeper) setSupply(ctx context.Context, coin sdk.Coin) {
 func (k BaseKeeper) trackDelegation(ctx context.Context, addr sdk.AccAddress, balance, amt sdk.Coins) error {
 	acc := k.ak.GetAccount(ctx, addr)
 	if acc == nil {
+		// check if it's an x/accounts smart account
+		if k.ak.HasAccount(ctx, addr) {
+			return nil
+		}
 		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "account %s does not exist", addr)
 	}
 
 	vacc, ok := acc.(types.VestingAccount)
 	if ok {
 		// TODO: return error on account.TrackDelegation
-		sdkCtx := sdk.UnwrapSDKContext(ctx)
-		vacc.TrackDelegation(sdkCtx.HeaderInfo().Time, balance, amt)
+		vacc.TrackDelegation(k.HeaderService.HeaderInfo(ctx).Time, balance, amt)
 		k.ak.SetAccount(ctx, acc)
 	}
 
 	return nil
 }
 
-// trackUndelegation trakcs undelegation of the given account if it is a vesting account
+// trackUndelegation tracks undelegation of the given account if it is a vesting account
 func (k BaseKeeper) trackUndelegation(ctx context.Context, addr sdk.AccAddress, amt sdk.Coins) error {
 	acc := k.ak.GetAccount(ctx, addr)
 	if acc == nil {
+		// check if it's an x/accounts smart account
+		if k.ak.HasAccount(ctx, addr) {
+			return nil
+		}
 		return errorsmod.Wrapf(sdkerrors.ErrUnknownAddress, "account %s does not exist", addr)
 	}
 

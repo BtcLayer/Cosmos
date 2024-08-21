@@ -2,12 +2,13 @@ package keeper_test
 
 import (
 	"bytes"
-	context "context"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"cosmossdk.io/core/address"
+	coretesting "cosmossdk.io/core/testing"
 	storetypes "cosmossdk.io/store/types"
 	authtypes "cosmossdk.io/x/auth/types"
 	"cosmossdk.io/x/circuit"
@@ -15,6 +16,7 @@ import (
 	"cosmossdk.io/x/circuit/types"
 
 	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
+	codectestutil "github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	"github.com/cosmos/cosmos-sdk/testutil"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -39,13 +41,16 @@ type fixture struct {
 
 func initFixture(t *testing.T) *fixture {
 	t.Helper()
-	encCfg := moduletestutil.MakeTestEncodingConfig(circuit.AppModuleBasic{})
+	encCfg := moduletestutil.MakeTestEncodingConfig(codectestutil.CodecOptions{}, circuit.AppModule{})
 	ac := addresscodec.NewBech32Codec("cosmos")
 	mockStoreKey := storetypes.NewKVStoreKey("test")
-	storeService := runtime.NewKVStoreService(mockStoreKey)
-	k := keeper.NewKeeper(encCfg.Codec, storeService, authtypes.NewModuleAddress("gov").String(), ac)
 
-	bz, err := ac.StringToBytes(authtypes.NewModuleAddress("gov").String())
+	env := runtime.NewEnvironment(runtime.NewKVStoreService(mockStoreKey), coretesting.NewNopLogger())
+	authority, err := ac.BytesToString(authtypes.NewModuleAddress("gov"))
+	require.NoError(t, err)
+	k := keeper.NewKeeper(env, encCfg.Codec, authority, ac)
+
+	bz, err := ac.StringToBytes(authority)
 	require.NoError(t, err)
 
 	return &fixture{

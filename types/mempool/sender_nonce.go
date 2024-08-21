@@ -4,7 +4,7 @@ import (
 	"context"
 	crand "crypto/rand" // #nosec // crypto/rand is used for seed generation
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"math/rand" // #nosec // math/rand is used for random selection and seeded from crypto/rand
 	"sync"
 
@@ -20,7 +20,7 @@ var (
 	_ Iterator = (*senderNonceMempoolIterator)(nil)
 )
 
-var DefaultMaxTx = 0
+var DefaultMaxTx = -1
 
 // SenderNonceMempool is a mempool that prioritizes transactions within a sender
 // by nonce, the lowest first, but selects a random sender on each iteration.
@@ -133,7 +133,7 @@ func (snm *SenderNonceMempool) Insert(_ context.Context, tx sdk.Tx) error {
 		return err
 	}
 	if len(sigs) == 0 {
-		return fmt.Errorf("tx must have at least one signer")
+		return errors.New("tx must have at least one signer")
 	}
 
 	sig := sigs[0]
@@ -206,7 +206,7 @@ func (snm *SenderNonceMempool) Remove(tx sdk.Tx) error {
 		return err
 	}
 	if len(sigs) == 0 {
-		return fmt.Errorf("tx must have at least one signer")
+		return errors.New("tx must have at least one signer")
 	}
 
 	sig := sigs[0]

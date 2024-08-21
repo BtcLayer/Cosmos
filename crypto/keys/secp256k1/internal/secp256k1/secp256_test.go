@@ -13,6 +13,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"io"
 	"testing"
 )
@@ -24,6 +25,7 @@ func generateKeyPair() (pubkey, privkey []byte) {
 	if err != nil {
 		panic(err)
 	}
+
 	pubkey = elliptic.Marshal(S256(), key.X, key.Y) //nolint:staticcheck // crypto will be refactored soon.
 	privkey = make([]byte, 32)
 	blob := key.D.Bytes()
@@ -92,7 +94,7 @@ func TestInvalidRecoveryID(t *testing.T) {
 	sig, _ := Sign(msg, seckey)
 	sig[64] = 99
 	_, err := RecoverPubkey(msg, sig)
-	if err != ErrInvalidRecoveryID {
+	if !errors.Is(err, ErrInvalidRecoveryID) {
 		t.Fatalf("got %q, want %q", err, ErrInvalidRecoveryID)
 	}
 }

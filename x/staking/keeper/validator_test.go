@@ -3,12 +3,13 @@ package keeper_test
 import (
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/golang/mock/gomock"
 
 	"cosmossdk.io/collections"
+	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/header"
 	"cosmossdk.io/math"
+	authtypes "cosmossdk.io/x/auth/types"
 	stakingkeeper "cosmossdk.io/x/staking/keeper"
 	"cosmossdk.io/x/staking/testutil"
 	stakingtypes "cosmossdk.io/x/staking/types"
@@ -16,7 +17,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func (s *KeeperTestSuite) applyValidatorSetUpdates(ctx sdk.Context, keeper *stakingkeeper.Keeper, expectedUpdatesLen int) []abci.ValidatorUpdate {
+func (s *KeeperTestSuite) applyValidatorSetUpdates(ctx sdk.Context, keeper *stakingkeeper.Keeper, expectedUpdatesLen int) []appmodule.ValidatorUpdate {
 	updates, err := keeper.ApplyAndReturnValidatorSetUpdates(ctx)
 	s.Require().NoError(err)
 	if expectedUpdatesLen >= 0 {
@@ -48,7 +49,7 @@ func (s *KeeperTestSuite) TestValidator() {
 	updates := s.applyValidatorSetUpdates(ctx, keeper, 1)
 	validator, err := keeper.GetValidator(ctx, valAddr)
 	require.NoError(err)
-	require.Equal(validator.ABCIValidatorUpdate(keeper.PowerReduction(ctx)), updates[0])
+	require.Equal(validator.ModuleValidatorUpdate(keeper.PowerReduction(ctx)), updates[0])
 
 	// after the save the validator should be bonded
 	require.Equal(stakingtypes.Bonded, validator.Status)
@@ -86,6 +87,50 @@ func (s *KeeperTestSuite) TestValidator() {
 	resPower, err = keeper.GetLastValidatorPower(ctx, valAddr)
 	require.Error(err, collections.ErrNotFound)
 	require.Equal(int64(0), resPower)
+}
+
+func (s *KeeperTestSuite) TestGetLastValidators() {
+	ctx, keeper := s.ctx, s.stakingKeeper
+	require := s.Require()
+
+	params, err := keeper.Params.Get(ctx)
+	require.NoError(err)
+
+	params.MaxValidators = 50
+	require.NoError(keeper.Params.Set(ctx, params))
+
+	// construct 50 validators all with equal power of 100
+	var validators [50]stakingtypes.Validator
+	for i := 0; i < 50; i++ {
+		validators[i] = testutil.NewValidator(s.T(), sdk.ValAddress(PKs[i].Address().Bytes()), PKs[i])
+		validators[i].Status = stakingtypes.Unbonded
+		validators[i].Tokens = math.ZeroInt()
+		tokens := keeper.TokensFromConsensusPower(ctx, 100)
+
+		validators[i], _ = validators[i].AddTokensFromDel(tokens)
+		require.Equal(keeper.TokensFromConsensusPower(ctx, 100), validators[i].Tokens)
+
+		s.bankKeeper.EXPECT().SendCoinsFromModuleToModule(gomock.Any(), stakingtypes.NotBondedPoolName, stakingtypes.BondedPoolName, gomock.Any())
+
+		validators[i] = stakingkeeper.TestingUpdateValidator(keeper, ctx, validators[i], true)
+		require.NoError(keeper.SetValidatorByConsAddr(ctx, validators[i]))
+
+		resVal, err := keeper.GetValidator(ctx, sdk.ValAddress(PKs[i].Address().Bytes()))
+		require.NoError(err)
+		require.True(validators[i].MinEqual(&resVal))
+	}
+
+	res, err := keeper.GetLastValidators(ctx)
+	require.NoError(err)
+	require.Len(res, 50)
+
+	// reduce max validators to 30 and ensure we only get 30 back
+	params.MaxValidators = 30
+	require.NoError(keeper.Params.Set(ctx, params))
+
+	res, err = keeper.GetLastValidators(ctx)
+	require.NoError(err)
+	require.Len(res, 30)
 }
 
 // This function tests UpdateValidator, GetValidator, GetLastValidators, RemoveValidator
@@ -276,8 +321,8 @@ func (s *KeeperTestSuite) TestApplyAndReturnValidatorSetUpdatesPowerDecrease() {
 
 	// CometBFT updates should reflect power change
 	updates := s.applyValidatorSetUpdates(ctx, keeper, 2)
-	require.Equal(validators[0].ABCIValidatorUpdate(keeper.PowerReduction(ctx)), updates[0])
-	require.Equal(validators[1].ABCIValidatorUpdate(keeper.PowerReduction(ctx)), updates[1])
+	require.Equal(validators[0].ModuleValidatorUpdate(keeper.PowerReduction(ctx)), updates[0])
+	require.Equal(validators[1].ModuleValidatorUpdate(keeper.PowerReduction(ctx)), updates[1])
 }
 
 func (s *KeeperTestSuite) TestUpdateValidatorCommission() {
@@ -378,6 +423,7 @@ func (s *KeeperTestSuite) TestValidatorToken() {
 	require.True(validator.Tokens.IsZero())
 }
 
+// TestUnbondingValidator tests the functionality of unbonding a validator.
 func (s *KeeperTestSuite) TestUnbondingValidator() {
 	ctx, keeper := s.ctx, s.stakingKeeper
 	require := s.Require()
@@ -389,13 +435,13 @@ func (s *KeeperTestSuite) TestUnbondingValidator() {
 
 	// set unbonding validator
 	endTime := time.Now()
-	endHeight := ctx.BlockHeight() + 10
-	require.NoError(keeper.SetUnbondingValidatorsQueue(ctx, endTime, endHeight, []string{valAddr.String()}))
+	endHeight := ctx.HeaderInfo().Height + 10
+	require.NoError(keeper.SetUnbondingValidatorsQueue(ctx, endTime, endHeight, []string{s.valAddressToString(valAddr)}))
 
 	resVals, err := keeper.GetUnbondingValidators(ctx, endTime, endHeight)
 	require.NoError(err)
 	require.Equal(1, len(resVals))
-	require.Equal(valAddr.String(), resVals[0])
+	require.Equal(s.valAddressToString(valAddr), resVals[0])
 
 	// add another unbonding validator
 	valAddr1 := sdk.ValAddress(PKs[1].Address().Bytes())
@@ -413,15 +459,15 @@ func (s *KeeperTestSuite) TestUnbondingValidator() {
 	resVals, err = keeper.GetUnbondingValidators(ctx, endTime, endHeight)
 	require.NoError(err)
 	require.Equal(1, len(resVals))
-	require.Equal(valAddr.String(), resVals[0])
+	require.Equal(s.valAddressToString(valAddr), resVals[0])
 
 	// check unbonding mature validators
-	ctx = ctx.WithBlockHeight(endHeight).WithHeaderInfo(header.Info{Time: endTime})
+	ctx = ctx.WithHeaderInfo(header.Info{Height: endHeight, Time: endTime})
 	err = keeper.UnbondAllMatureValidators(ctx)
 	require.EqualError(err, "validator in the unbonding queue was not found: validator does not exist")
 
 	require.NoError(keeper.SetValidator(ctx, validator))
-	ctx = ctx.WithBlockHeight(endHeight).WithHeaderInfo(header.Info{Time: endTime})
+	ctx = ctx.WithHeaderInfo(header.Info{Height: endHeight, Time: endTime})
 
 	err = keeper.UnbondAllMatureValidators(ctx)
 	require.EqualError(err, "unexpected validator in unbonding queue; status was not unbonding")
@@ -432,7 +478,7 @@ func (s *KeeperTestSuite) TestUnbondingValidator() {
 	validator, err = keeper.GetValidator(ctx, valAddr)
 	require.ErrorIs(err, stakingtypes.ErrNoValidatorFound)
 
-	require.NoError(keeper.SetUnbondingValidatorsQueue(ctx, endTime, endHeight, []string{valAddr.String()}))
+	require.NoError(keeper.SetUnbondingValidatorsQueue(ctx, endTime, endHeight, []string{s.valAddressToString(valAddr)}))
 	validator = testutil.NewValidator(s.T(), valAddr, valPubKey)
 	validator, _ = validator.AddTokensFromDel(addTokens)
 	validator.Status = stakingtypes.Unbonding
@@ -441,4 +487,72 @@ func (s *KeeperTestSuite) TestUnbondingValidator() {
 	validator, err = keeper.GetValidator(ctx, valAddr)
 	require.NoError(err)
 	require.Equal(stakingtypes.Unbonded, validator.Status)
+}
+
+func (s *KeeperTestSuite) TestValidatorConsPubKeyUpdate() {
+	ctx, keeper, msgServer, bk, ak := s.ctx, s.stakingKeeper, s.msgServer, s.bankKeeper, s.accountKeeper
+	require := s.Require()
+
+	powers := []int64{10, 20}
+	var validators [2]stakingtypes.Validator
+
+	bonedPool := authtypes.NewEmptyModuleAccount(stakingtypes.BondedPoolName)
+	ak.EXPECT().GetModuleAccount(gomock.Any(), stakingtypes.BondedPoolName).Return(bonedPool).AnyTimes()
+	bk.EXPECT().GetBalance(gomock.Any(), bonedPool.GetAddress(), sdk.DefaultBondDenom).Return(sdk.NewInt64Coin(sdk.DefaultBondDenom, 1000000)).AnyTimes()
+
+	for i, power := range powers {
+		valAddr := sdk.ValAddress(PKs[i].Address().Bytes())
+		validators[i] = testutil.NewValidator(s.T(), valAddr, PKs[i])
+		tokens := keeper.TokensFromConsensusPower(ctx, power)
+
+		validators[i], _ = validators[i].AddTokensFromDel(tokens)
+		require.NoError(keeper.SetValidator(ctx, validators[i]))
+		require.NoError(keeper.SetValidatorByPowerIndex(ctx, validators[i]))
+		require.NoError(keeper.SetValidatorByConsAddr(ctx, validators[i]))
+
+		s.bankKeeper.EXPECT().SendCoinsFromModuleToModule(gomock.Any(), stakingtypes.NotBondedPoolName, stakingtypes.BondedPoolName, gomock.Any())
+		updates := s.applyValidatorSetUpdates(ctx, keeper, 1)
+		validator, err := keeper.GetValidator(ctx, valAddr)
+		require.NoError(err)
+		require.Equal(validator.ModuleValidatorUpdate(keeper.PowerReduction(ctx)), updates[0])
+	}
+
+	params, err := keeper.Params.Get(ctx)
+	require.NoError(err)
+
+	params.KeyRotationFee = sdk.NewInt64Coin(sdk.DefaultBondDenom, 1000)
+	err = keeper.Params.Set(ctx, params)
+	require.NoError(err)
+
+	valAddr1 := sdk.ValAddress(PKs[0].Address().Bytes())
+
+	valStr, err := keeper.ValidatorAddressCodec().BytesToString(valAddr1)
+	require.NoError(err)
+
+	msg, err := stakingtypes.NewMsgRotateConsPubKey(
+		valStr,
+		PKs[499], // taking the last element from PKs
+	)
+
+	require.NoError(err)
+
+	bk.EXPECT().SendCoinsFromAccountToModule(ctx, sdk.AccAddress(valAddr1), gomock.Any(), gomock.Any()).AnyTimes()
+	_, err = msgServer.RotateConsPubKey(ctx, msg)
+	require.NoError(err)
+
+	updates := s.applyValidatorSetUpdates(ctx, keeper, 2)
+
+	originalPubKey, err := validators[0].ConsPubKey()
+	require.NoError(err)
+
+	validator, err := keeper.GetValidator(ctx, valAddr1)
+	require.NoError(err)
+
+	newPubKey, err := validator.ConsPubKey()
+	require.NoError(err)
+
+	require.Equal(int64(0), updates[0].Power)
+	require.Equal(originalPubKey.Bytes(), updates[0].PubKey)
+	require.Equal(int64(10), updates[1].Power)
+	require.Equal(newPubKey.Bytes(), updates[1].PubKey)
 }

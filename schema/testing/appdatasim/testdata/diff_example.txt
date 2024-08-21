@@ -1,0 +1,69 @@
+App State Diff:
+MODULE COUNT ERROR: expected 2, got 1
+Module all_kinds
+  Object Collection test_address
+    OBJECT COUNT ERROR: expected 14, got 13
+    Object key=0x34009062001a03070500afc80101055a0700ac01293000: NOT FOUND
+    Object key=0x5b01cd8d349b030278030112d8e6020f00000600cc2f66016a016d01: NOT FOUND
+    Object Collection test_bool
+    Object key=false
+      valNotNull: expected true, got false
+      Object key=true
+      valNotNull: expected true, got false
+      Object Collection test_bytes
+    Object key=0x09: NOT FOUND
+    Object Collection test_decimal
+    OBJECT COUNT ERROR: expected 6, got 5
+    Object key=-99910.16: NOT FOUND
+    Object key=309967364: NOT FOUND
+    Object Collection test_duration
+    OBJECT COUNT ERROR: expected 8, got 7
+    Object key=-3m19.124749496s: NOT FOUND
+    Object key=45ns: NOT FOUND
+    Object Collection test_float32
+    Object key=-2: NOT FOUND
+    Object Collection test_int32
+    OBJECT COUNT ERROR: expected 1, got 0
+    Object key=-148250689: NOT FOUND
+    Object Collection test_int64
+    OBJECT COUNT ERROR: expected 4, got 3
+    Object key=1086011412347477: NOT FOUND
+    Object key=881248243728748743
+      valNotNull: expected 1, got -154
+      valNullable: expected 363352528, got nil
+      Object Collection test_int8
+    Object key=53
+      valNotNull: expected -7, got 58
+      valNullable: expected 15, got -10
+      Object Collection test_integer
+    OBJECT COUNT ERROR: expected 4, got 3
+    Object key=12
+      valNotNull: expected -3, got 101
+      Object key=4: NOT FOUND
+    Object Collection test_string
+    Object key=
+    #[ǅ¦&?=: NOT FOUND
+    Object Collection test_time
+    Object key=1969-12-31 19:00:00.001598687 -0500 EST
+      valNullable: expected nil, got 1969-12-31 19:00:00.000000033 -0500 EST
+      Object Collection test_uint16
+    OBJECT COUNT ERROR: expected 4, got 3
+    Object key=1478: NOT FOUND
+    Object Collection test_uint32
+    OBJECT COUNT ERROR: expected 3, got 2
+    Object key=0
+      valNotNull: expected 1, got 26
+      valNullable: expected 321283034, got 2
+      Object key=23067: NOT FOUND
+    Object Collection test_uint64
+    OBJECT COUNT ERROR: expected 2, got 0
+    Object key=1: NOT FOUND
+    Object key=50508131: NOT FOUND
+    Object Collection test_uint8
+    OBJECT COUNT ERROR: expected 2, got 1
+    Object key=119
+      valNotNull: expected 6, got 30
+      valNullable: expected nil, got 7
+      Object key=72: NOT FOUND
+    Module test_cases: actual module NOT FOUND
+BlockNum: expected 2, got 1

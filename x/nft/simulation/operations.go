@@ -6,7 +6,6 @@ import (
 	"cosmossdk.io/x/nft"
 	"cosmossdk.io/x/nft/keeper"
 
-	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -61,7 +60,7 @@ func SimulateMsgSend(
 	k keeper.Keeper,
 ) simtypes.Operation {
 	return func(
-		r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chainID string,
+		r *rand.Rand, app simtypes.AppEntrypoint, ctx sdk.Context, accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		sender, _ := simtypes.RandomAcc(r, accs)
 		receiver, _ := simtypes.RandomAcc(r, accs)
@@ -92,7 +91,7 @@ func SimulateMsgSend(
 			return simtypes.NoOpMsg(nft.ModuleName, TypeMsgSend, err.Error()), nil, err
 		}
 
-		recieverStr, err := ak.AddressCodec().BytesToString(receiver.Address.Bytes())
+		receiverStr, err := ak.AddressCodec().BytesToString(receiver.Address.Bytes())
 		if err != nil {
 			return simtypes.NoOpMsg(nft.ModuleName, TypeMsgSend, err.Error()), nil, err
 		}
@@ -101,7 +100,7 @@ func SimulateMsgSend(
 			ClassId:  n.ClassId,
 			Id:       n.Id,
 			Sender:   senderStr,
-			Receiver: recieverStr,
+			Receiver: receiverStr,
 		}
 
 		tx, err := simtestutil.GenSignedMockTx(

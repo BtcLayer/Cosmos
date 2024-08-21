@@ -22,6 +22,25 @@ Each entry must include the Github issue reference in the following format:
 
 ## [Unreleased]
 
+## [v1.4.1](https://github.com/cosmos/cosmos-sdk/releases/tag/log/v1.4.1) - 2024-08-16
+
+* [#21326](https://github.com/cosmos/cosmos-sdk/pull/21326) Avoid context key collision.
+
+## [v1.4.0](https://github.com/cosmos/cosmos-sdk/releases/tag/log/v1.4.0) - 2024-08-07
+
+* [#21045](https://github.com/cosmos/cosmos-sdk/pull/21045) Add `WithContext` method implementations to make all returned loggers compatible with `cosmossdk.io/core/log.Logger` (v1) without a direct dependency.
+
+## [v1.3.1](https://github.com/cosmos/cosmos-sdk/releases/tag/log/v1.3.1) - 2024-02-05
+
+* [#19346](https://github.com/cosmos/cosmos-sdk/pull/19346) Upgrade zerolog to v1.32.0.
+* [#19346](https://github.com/cosmos/cosmos-sdk/pull/19346) `#15956` now works thanks to the upgrade of `zerolog`.
+
+## [v1.3.0](https://github.com/cosmos/cosmos-sdk/releases/tag/log/v1.3.0) - 2024-01-10
+
+* [#18916](https://github.com/cosmos/cosmos-sdk/pull/18916) Introduce an option for setting hooks.
+* [#18429](https://github.com/cosmos/cosmos-sdk/pull/18429) Support customization of log json marshal.
+* [#18898](https://github.com/cosmos/cosmos-sdk/pull/18898) Add `WARN` level.
+
 ## [v1.2.1](https://github.com/cosmos/cosmos-sdk/releases/tag/log/v1.2.1) - 2023-08-25
 
 * [#17532](https://github.com/cosmos/cosmos-sdk/pull/17532) Proper marshalling of `fmt.Stringer` (follow-up of [#17205](https://github.com/cosmos/cosmos-sdk/pull/17205)).

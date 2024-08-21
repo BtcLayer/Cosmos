@@ -2,7 +2,7 @@
 
 Welcome to the Cosmos SDK's team roadmap. 
 
-> This document is meant to help the team get feedback on the proposed work and for others to follow where we stand in our process. This will be a living document updated on a regular basis. If you'd like to participate in any workscope or would like to suggest another feature please reach out to [Marko](marko@binary.builders) or [Sam](sam@binary.builders) and we will schedule a call to discuss the feature request. 
+> This document is meant to help the team get feedback on the proposed work and for others to follow where we stand in our process. This will be a living document updated on a regular basis. If you'd like to participate in any workscope or would like to suggest another feature please reach out to [Marko](mailto:marko@binary.builders) or [Sam](mailto:sam@binary.builders) and we will schedule a call to discuss the feature request. 
 
 
 ## Q1
@@ -45,7 +45,7 @@ Welcome to the Cosmos SDK's team roadmap.
         *  Migrating 3 modules to use collections would help in show users how to migrate users
 * [ ] [Release ORM v1](https://github.com/cosmos/cosmos-sdk/issues/11088)
 * [x] [Sign mode textual](https://github.com/cosmos/cosmos-sdk/issues/11970) 
-    * Sign mode textual has been under construction for 2 quarters now, this quarter the goal is to move towards v1 and potentially line up a audit before final release.
+    * Sign mode textual has been under construction for 2 quarters now, this quarter the goal is to move towards v1 and potentially line up an audit before final release.
 * [x] Core API
     * [Merge ADR for Core API](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-063-core-module-api.md) 
     * Migrate three modules to use core api
@@ -66,7 +66,7 @@ Welcome to the Cosmos SDK's team roadmap.
 ### Testing
 
 * [x] [integration testing framework](https://github.com/cosmos/cosmos-sdk/issues/14145) 
-    * design and merge a integration testing framework. 
+    * design and merge an integration testing framework. 
     * The goals of the framework would that a module only needs to depend on modules that it depends on outside of testing, not all modules in the sdk like today.
 
 
@@ -116,7 +116,7 @@ Issue: https://github.com/cosmos/iavl/issues/548
         * Users should be able to pick between delayed execution and optimistic
         * RFC/ADR is merged
         * Implementation started. 
-    * Progess:
+    * Progress:
         * On pause till ABCI 2.0 is merged
 
 ### Client UX
@@ -159,14 +159,14 @@ Issue: https://github.com/cosmos/iavl/issues/548
         * KvStoreService is being added to all modules
 * [ ] [Remove global bech32](https://github.com/cosmos/cosmos-sdk/issues/13140) 
     * Objective:
-        * Depreacte global bech32 setting
+        * Deprecate global bech32 setting
     * Progress:
         * All modules except bank use the `address.Codec`
 * [ ] Make sdk.Msg only be `proto.message`
     * Objectives: 
         * Reduce sdk.Msg to only be proto.message
         * Reduce boilerplate in `msgs.go`
-    * Progess: 
+    * Progress: 
         * [x] [Make ValidateBasic Optional](https://github.com/cosmos/cosmos-sdk/issues/15648)
         * [ ] [Make GetSigners be optional](https://github.com/cosmos/cosmos-sdk/issues/15677)
         * [ ] Remove GetsignBytes for legacy amino encoding
@@ -200,7 +200,7 @@ Issue: https://github.com/cosmos/iavl/issues/548
 
 * [ ] [Invariant Checking](https://github.com/cosmos/cosmos-sdk/issues/15706)
     * Objective:
-        * Design a new system for checking invairants
+        * Design a new system for checking invariants
         * Implement changes
         * Audit current invariants
     * Progress: 

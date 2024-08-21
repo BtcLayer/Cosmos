@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	abci "github.com/cometbft/cometbft/abci/types"
+	abci "github.com/cometbft/cometbft/api/cometbft/abci/v1"
 	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/require"
@@ -35,6 +35,7 @@ import (
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/runtime"
+	"github.com/cosmos/cosmos-sdk/tests/integration/staking"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -72,7 +73,7 @@ func (s *SimTestSuite) SetupTest() {
 
 	// create validator set with single validator
 	account := accounts[0]
-	cmtPk, err := cryptocodec.ToCmtPubKeyInterface(account.PubKey)
+	cmtPk, err := cryptocodec.ToCmtPubKeyInterface(account.ConsKey.PubKey())
 	require.NoError(s.T(), err)
 	validator := cmttypes.NewValidator(cmtPk, 1)
 
@@ -91,7 +92,7 @@ func (s *SimTestSuite) SetupTest() {
 	)
 
 	cfg := depinject.Configs(
-		testutil.AppConfig,
+		staking.AppConfig,
 		depinject.Supply(sdklog.NewNopLogger()),
 	)
 
@@ -146,6 +147,7 @@ func (s *SimTestSuite) TestWeightedOperations() {
 		{simulation.DefaultWeightMsgUndelegate, types.ModuleName, sdk.MsgTypeURL(&types.MsgUndelegate{})},
 		{simulation.DefaultWeightMsgBeginRedelegate, types.ModuleName, sdk.MsgTypeURL(&types.MsgBeginRedelegate{})},
 		{simulation.DefaultWeightMsgCancelUnbondingDelegation, types.ModuleName, sdk.MsgTypeURL(&types.MsgCancelUnbondingDelegation{})},
+		{simulation.DefaultWeightMsgRotateConsPubKey, types.ModuleName, sdk.MsgTypeURL(&types.MsgRotateConsPubKey{})},
 	}
 
 	for i, w := range weightedOps {
@@ -165,7 +167,7 @@ func (s *SimTestSuite) TestWeightedOperations() {
 // Abonormal scenarios, where the message are created by an errors are not tested here.
 func (s *SimTestSuite) TestSimulateMsgCreateValidator() {
 	require := s.Require()
-	_, err := s.app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash})
+	_, err := s.app.FinalizeBlock(&abci.FinalizeBlockRequest{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash})
 	require.NoError(err)
 	// execute operation
 	op := simulation.SimulateMsgCreateValidator(s.txConfig, s.accountKeeper, s.bankKeeper, s.stakingKeeper)
@@ -211,7 +213,7 @@ func (s *SimTestSuite) TestSimulateMsgCancelUnbondingDelegation() {
 	require.NoError(s.stakingKeeper.SetUnbondingDelegation(ctx, udb))
 	s.setupValidatorRewards(ctx, val0bz)
 
-	_, err = s.app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
+	_, err = s.app.FinalizeBlock(&abci.FinalizeBlockRequest{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
 	require.NoError(err)
 	// execute operation
 	op := simulation.SimulateMsgCancelUnbondingDelegate(s.txConfig, s.accountKeeper, s.bankKeeper, s.stakingKeeper)
@@ -239,7 +241,7 @@ func (s *SimTestSuite) TestSimulateMsgEditValidator() {
 	// setup accounts[0] as validator
 	_ = s.getTestingValidator0(ctx)
 
-	_, err := s.app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
+	_, err := s.app.FinalizeBlock(&abci.FinalizeBlockRequest{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
 	require.NoError(err)
 	// execute operation
 	op := simulation.SimulateMsgEditValidator(s.txConfig, s.accountKeeper, s.bankKeeper, s.stakingKeeper)
@@ -274,7 +276,7 @@ func (s *SimTestSuite) TestSimulateMsgDelegate() {
 	require.Equal("cosmos1p8wcgrjr4pjju90xg6u9cgq55dxwq8j7u4x9a0", msg.DelegatorAddress)
 	require.Equal("stake", msg.Amount.Denom)
 	require.Equal(sdk.MsgTypeURL(&types.MsgDelegate{}), sdk.MsgTypeURL(&msg))
-	require.Equal("cosmosvaloper1tnh2q55v8wyygtt9srz5safamzdengsn9dsd7z", msg.ValidatorAddress)
+	require.Equal("cosmosvaloper122js6qry7nlgp63gcse8muknspuxur77vj3kkr", msg.ValidatorAddress)
 	require.Len(futureOperations, 0)
 }
 
@@ -300,7 +302,7 @@ func (s *SimTestSuite) TestSimulateMsgUndelegate() {
 
 	s.setupValidatorRewards(ctx, val0bz)
 
-	_, err = s.app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
+	_, err = s.app.FinalizeBlock(&abci.FinalizeBlockRequest{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
 	require.NoError(err)
 	// execute operation
 	op := simulation.SimulateMsgUndelegate(s.txConfig, s.accountKeeper, s.bankKeeper, s.stakingKeeper)
@@ -346,7 +348,7 @@ func (s *SimTestSuite) TestSimulateMsgBeginRedelegate() {
 	s.setupValidatorRewards(ctx, val0bz)
 	s.setupValidatorRewards(ctx, val1bz)
 
-	_, err = s.app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
+	_, err = s.app.FinalizeBlock(&abci.FinalizeBlockRequest{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
 	require.NoError(err)
 
 	// execute operation
@@ -364,6 +366,32 @@ func (s *SimTestSuite) TestSimulateMsgBeginRedelegate() {
 	require.Equal(sdk.MsgTypeURL(&types.MsgBeginRedelegate{}), sdk.MsgTypeURL(&msg))
 	require.Equal("cosmosvaloper1ghekyjucln7y67ntx7cf27m9dpuxxemnsvnaes", msg.ValidatorDstAddress)
 	require.Equal("cosmosvaloper1p8wcgrjr4pjju90xg6u9cgq55dxwq8j7epjs3u", msg.ValidatorSrcAddress)
+	require.Len(futureOperations, 0)
+}
+
+func (s *SimTestSuite) TestSimulateRotateConsPubKey() {
+	require := s.Require()
+	blockTime := time.Now().UTC()
+	ctx := s.ctx.WithHeaderInfo(header.Info{Time: blockTime})
+
+	_ = s.getTestingValidator2(ctx)
+
+	// begin a new block
+	_, err := s.app.FinalizeBlock(&abci.FinalizeBlockRequest{Height: s.app.LastBlockHeight() + 1, Hash: s.app.LastCommitID().Hash, Time: blockTime})
+	require.NoError(err)
+
+	// execute operation
+	op := simulation.SimulateMsgRotateConsPubKey(s.txConfig, s.accountKeeper, s.bankKeeper, s.stakingKeeper)
+	operationMsg, futureOperations, err := op(s.r, s.app.BaseApp, ctx, s.accounts, "")
+	require.NoError(err)
+
+	var msg types.MsgRotateConsPubKey
+	err = proto.Unmarshal(operationMsg.Msg, &msg)
+	require.NoError(err)
+
+	require.True(operationMsg.OK)
+	require.Equal(sdk.MsgTypeURL(&types.MsgRotateConsPubKey{}), sdk.MsgTypeURL(&msg))
+	require.Equal("cosmosvaloper1p8wcgrjr4pjju90xg6u9cgq55dxwq8j7epjs3u", msg.ValidatorAddress)
 	require.Len(futureOperations, 0)
 }
 
@@ -391,6 +419,14 @@ func (s *SimTestSuite) getTestingValidator(ctx sdk.Context, commission types.Com
 	s.Require().NoError(s.stakingKeeper.SetValidator(ctx, validator))
 
 	return validator
+}
+
+func (s *SimTestSuite) getTestingValidator2(ctx sdk.Context) types.Validator {
+	val := s.getTestingValidator0(ctx)
+	val.Status = types.Bonded
+	s.Require().NoError(s.stakingKeeper.SetValidator(ctx, val))
+	s.Require().NoError(s.stakingKeeper.SetValidatorByConsAddr(ctx, val))
+	return val
 }
 
 func (s *SimTestSuite) setupValidatorRewards(ctx sdk.Context, valAddress sdk.ValAddress) {

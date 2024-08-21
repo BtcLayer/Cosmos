@@ -7,15 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/testutil"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 func TestMsgSendGetSignBytes(t *testing.T) {
-	addr1 := sdk.AccAddress([]byte("input"))
-	addr2 := sdk.AccAddress([]byte("output"))
 	coins := sdk.NewCoins(sdk.NewInt64Coin("atom", 10))
-	msg := NewMsgSend(addr1, addr2, coins)
+	msg := NewMsgSend("cosmos1d9h8qat57ljhcm", "cosmos1da6hgur4wsmpnjyg", coins)
 	res, err := codec.NewProtoCodec(types.NewInterfaceRegistry()).MarshalAminoJSON(msg)
 	require.NoError(t, err)
 
@@ -24,10 +23,15 @@ func TestMsgSendGetSignBytes(t *testing.T) {
 }
 
 func TestInputValidation(t *testing.T) {
-	addr1 := sdk.AccAddress([]byte("_______alice________"))
-	addr2 := sdk.AccAddress([]byte("________bob_________"))
-	addrEmpty := sdk.AccAddress([]byte(""))
-	addrLong := sdk.AccAddress([]byte("Purposefully long address"))
+	ac := testutil.CodecOptions{}.GetAddressCodec()
+	addr1, err := ac.BytesToString([]byte("_______alice________"))
+	require.NoError(t, err)
+	addr2, err := ac.BytesToString([]byte("________bob_________"))
+	require.NoError(t, err)
+	addrEmpty, err := ac.BytesToString([]byte(""))
+	require.NoError(t, err)
+	addrLong, err := ac.BytesToString([]byte("Purposefully long address"))
+	require.NoError(t, err)
 
 	someCoins := sdk.NewCoins(sdk.NewInt64Coin("atom", 123))
 	multiCoins := sdk.NewCoins(sdk.NewInt64Coin("atom", 123), sdk.NewInt64Coin("eth", 20))
@@ -65,10 +69,15 @@ func TestInputValidation(t *testing.T) {
 }
 
 func TestOutputValidation(t *testing.T) {
-	addr1 := sdk.AccAddress([]byte("_______alice________"))
-	addr2 := sdk.AccAddress([]byte("________bob_________"))
-	addrEmpty := sdk.AccAddress([]byte(""))
-	addrLong := sdk.AccAddress([]byte("Purposefully long address"))
+	ac := testutil.CodecOptions{}.GetAddressCodec()
+	addr1, err := ac.BytesToString([]byte("_______alice________"))
+	require.NoError(t, err)
+	addr2, err := ac.BytesToString([]byte("________bob_________"))
+	require.NoError(t, err)
+	addrEmpty, err := ac.BytesToString([]byte(""))
+	require.NoError(t, err)
+	addrLong, err := ac.BytesToString([]byte("Purposefully long address"))
+	require.NoError(t, err)
 
 	someCoins := sdk.NewCoins(sdk.NewInt64Coin("atom", 123))
 	multiCoins := sdk.NewCoins(sdk.NewInt64Coin("atom", 123), sdk.NewInt64Coin("eth", 20))
@@ -106,8 +115,12 @@ func TestOutputValidation(t *testing.T) {
 }
 
 func TestMsgMultiSendGetSignBytes(t *testing.T) {
-	addr1 := sdk.AccAddress([]byte("input"))
-	addr2 := sdk.AccAddress([]byte("output"))
+	ac := testutil.CodecOptions{}.GetAddressCodec()
+	addr1, err := ac.BytesToString([]byte("input"))
+	require.NoError(t, err)
+	addr2, err := ac.BytesToString([]byte("output"))
+	require.NoError(t, err)
+
 	coins := sdk.NewCoins(sdk.NewInt64Coin("atom", 10))
 	msg := &MsgMultiSend{
 		Inputs:  []Input{NewInput(addr1, coins)},
