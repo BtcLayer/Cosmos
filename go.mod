@@ -34,6 +34,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
+	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
@@ -46,7 +47,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mdp/qrterminal/v3 v3.2.0
 	github.com/muesli/termenv v0.15.2
-	github.com/prometheus/client_golang v1.20.0
+	github.com/prometheus/client_golang v1.20.4
 	github.com/prometheus/common v0.55.0
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cast v1.7.0
