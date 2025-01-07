@@ -4,8 +4,8 @@ go 1.23
 
 require (
 	github.com/cosmos/cosmos-sdk v0.50.9
-	github.com/creachadair/atomicfile v0.3.5
-	github.com/creachadair/tomledit v0.0.26
+	github.com/creachadair/atomicfile v0.3.6
+	github.com/creachadair/tomledit v0.0.27
 	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
